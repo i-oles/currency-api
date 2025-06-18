@@ -1,9 +1,17 @@
 package rates
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"main/internal/api"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 func Test_calculateCurrencyRates(t *testing.T) {
@@ -255,53 +263,154 @@ func Test_getAllCombinations(t *testing.T) {
 }
 
 func Test_validateParameter(t *testing.T) {
-	type args struct {
-		currencies []string
-	}
 	tests := []struct {
 		name    string
-		args    args
+		param   string
 		wantErr bool
 	}{
 		{
-			name: "validation ok for USD, GBP",
-			args: args{
-				currencies: []string{"USD", "GBP"},
-			},
+			name:  "validation ok for USD,GBP",
+			param: "USD,GBP",
 		},
 		{
-			name: "validation ok for USD, GBP, PLN, EUR, INR",
-			args: args{
-				currencies: []string{"USD", "GBP", "PLN", "EUR", "INR"},
-			},
+			name:  "validation ok for USD,GBP,PLN,EUR,INR",
+			param: "USD,GBP,PLN,EUR,INR",
 		},
 		{
-			name: "error validation for 'USD'",
-			args: args{
-				currencies: []string{"USD"},
-			},
+			name:    "error validation for USD",
+			param:   "USD",
 			wantErr: true,
 		},
 		{
-			name: "error validation for empty string",
-			args: args{
-				currencies: []string{""},
-			},
+			name:    "error validation for empty string",
+			param:   "",
 			wantErr: true,
 		},
-		{
-			name: "error validation for empty parameter",
-			args: args{
-				currencies: []string{},
-			},
-			wantErr: true,
-		},
+		//TODO: empty param?
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := validateParameter(tt.args.currencies); (err != nil) != tt.wantErr {
+			if err := validateParameter(tt.param); (err != nil) != tt.wantErr {
 				t.Errorf("validateParameter() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+type MockRateAPI struct{}
+
+func NewMockRateAPI() MockRateAPI {
+	return MockRateAPI{}
+}
+
+func (m MockRateAPI) GetCurrencyRates(
+	ctx context.Context,
+) (api.Response, error) {
+	return api.Response{
+		Base: "USD",
+		Rates: map[string]float64{
+			"DKK": 6.48352,
+			"DOP": 59.202312,
+			"DZD": 130.22232,
+			"EGP": 50.458337,
+			"ERN": 15,
+			"ETB": 134.8,
+			"EUR": 0.869289,
+			"FJD": 2.24725,
+			"FKP": 0.742708,
+			"GBP": 0.742708,
+			"GEL": 2.72,
+			"GGP": 0.742708,
+			"GHS": 10.295649,
+			"GIP": 0.742708,
+			"GMD": 71.500005,
+			"GNF": 8658.789126,
+			"GTQ": 7.677452,
+			"GYD": 209.058301,
+			"IMP": 0.742708,
+			"INR": 86.466554,
+			"IQD": 1309.719481,
+			"IRR": 42125,
+			"UAH": 41.534469,
+			"UGX": 3593.775173,
+			"USD": 1,
+			"UYU": 40.984695,
+		},
+		Timestamp: 1750240800,
+	}, nil
+}
+
+func TestHandler_Handle(t *testing.T) {
+	type fields struct {
+		currencyRateAPI api.CurrencyRate
+	}
+	tests := []struct {
+		name         string
+		fields       fields
+		queryParams  string
+		wantStatus   int
+		wantResponse []map[string]interface{}
+	}{
+		{
+			name: "test param USD,GBP, status ok",
+			fields: fields{
+				currencyRateAPI: NewMockRateAPI(),
+			},
+			queryParams: "USD,GBP",
+			wantStatus:  http.StatusOK,
+			wantResponse: []map[string]interface{}{
+				{
+					"from": "USD", "to": "GBP", "rate": 0.742708,
+				},
+				{
+					"from": "GBP", "to": "USD", "rate": 1.346424,
+				},
+			},
+		},
+		{
+			name: "test param USD, status 400",
+			fields: fields{
+				currencyRateAPI: NewMockRateAPI(),
+			},
+			queryParams:  "USD",
+			wantStatus:   http.StatusBadRequest,
+			wantResponse: nil,
+		},
+		{
+			name: "test param '', status 400",
+			fields: fields{
+				currencyRateAPI: NewMockRateAPI(),
+			},
+			queryParams:  "",
+			wantStatus:   http.StatusBadRequest,
+			wantResponse: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+
+			c, _ := gin.CreateTestContext(recorder)
+
+			c.Request = httptest.NewRequestWithContext(
+				context.Background(), "GET", fmt.Sprintf("/rates?currencies=%s", tt.queryParams),
+				nil)
+
+			handler := NewHandler(tt.fields.currencyRateAPI)
+			handler.Handle(c)
+
+			if recorder.Code != tt.wantStatus {
+				t.Errorf("handler returned wrong status code: got %d want %d", recorder.Code, tt.wantStatus)
+			}
+
+			var gotResponse []map[string]interface{}
+			if err := json.Unmarshal(recorder.Body.Bytes(), &gotResponse); err != nil {
+				t.Fatalf("failed to unmarshal response: %v", err)
+			}
+
+			if !reflect.DeepEqual(gotResponse, tt.wantResponse) {
+				t.Errorf("response body:\ngot  %v\nwant %v", gotResponse, tt.wantResponse)
 			}
 		})
 	}

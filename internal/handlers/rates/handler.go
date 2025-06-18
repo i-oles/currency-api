@@ -21,25 +21,22 @@ func NewHandler(currencyRateAPI api.CurrencyRate) *Handler {
 	}
 }
 
-type Curr struct {
-	From string  `json:"from"`
-	To   string  `json:"to"`
-	Rate float64 `json:"rate"`
-}
-
 func (h *Handler) Handle(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	param := c.Query("currencies")
-	currencies := strings.Split(param, ",")
-
-	err := validateParameter(currencies)
+	err := validateParameter(param)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, nil)
+
+		return
 	}
+
+	currencies := strings.Split(param, ",")
 
 	resp, err := h.currencyRateAPI.GetCurrencyRates(ctx)
 	if err != nil {
+		//TODO: add note about the fact that it is not a badRequest
 		c.JSON(http.StatusBadRequest, nil)
 
 		return
@@ -50,14 +47,22 @@ func (h *Handler) Handle(c *gin.Context) {
 	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		return
 	}
 
 	c.JSON(http.StatusOK, result)
 }
 
-func validateParameter(currencies []string) error {
+func validateParameter(param string) error {
+	if param == "" {
+		return errors.New("param cannot be empty")
+	}
+
+	currencies := strings.Split(param, ",")
+
 	if len(currencies) < 2 {
-		return errors.New("not enough currencies given")
+		return errors.New("not enough param given")
 	}
 
 	return nil
