@@ -1,1 +1,1 @@
-package currencyapi
+package main
