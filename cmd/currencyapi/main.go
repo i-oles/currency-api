@@ -1,6 +1,7 @@
 package main
 
 import (
+	openExchange "main/internal/api/openexchange"
 	"main/internal/handlers/rates"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,8 @@ func main() {
 
 	api := router.Group("/")
 
-	ratesHandler := rates.NewHandler()
+	openExchangeAPI := openExchange.New()
+
+	ratesHandler := rates.NewHandler(openExchangeAPI)
 	api.GET("/rates", ratesHandler.Handle)
 }

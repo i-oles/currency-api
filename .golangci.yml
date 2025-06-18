@@ -115,6 +115,9 @@ formatters:
     - goimports
     - golines
 
+
 run:
+  skip-dirs:
+    - "example"
   timeout: 5m
 
