@@ -28,6 +28,7 @@ func main() {
 		ReadHeaderTimeout: 3 * time.Second,
 	}
 
+	// TODO: ctx shut down
 	err := srv.ListenAndServe()
 	if err != nil {
 		slog.Error("listenAndServe", slog.String("err", err.Error()))

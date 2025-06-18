@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"main/internal/api"
+	"math"
 	"net/http"
 	"strings"
 
@@ -29,25 +30,37 @@ type Curr struct {
 func (h *Handler) Handle(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	//TODO: add validation request params ("", missing parameter, one, parameter --> error)
+	param := c.Query("currencies")
+	currencies := strings.Split(param, ",")
+
+	err := validateParameter(currencies)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, nil)
+	}
+
 	resp, err := h.currencyRateAPI.GetCurrencyRates(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, nil)
 
 		return
 	}
 
-	param := c.Query("currencies")
-	currencies := strings.Split(param, ",")
+	currencyCombinations := getAllCombinations(currencies)
 
-	currencyCombinations := getPermutations(currencies)
-
-	r, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
+	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 
-	c.JSON(http.StatusOK, r)
+	c.JSON(http.StatusOK, result)
+}
+
+func validateParameter(currencies []string) error {
+	if len(currencies) < 2 {
+		return errors.New("not enough currencies given")
+	}
+
+	return nil
 }
 
 func calculateCurrencyRates(
@@ -55,6 +68,7 @@ func calculateCurrencyRates(
 	currencyCombinations [][]string,
 ) ([]map[string]interface{}, error) {
 	baseCur := "USD"
+	baseCurRate := 1.0
 
 	r := make([]map[string]interface{}, 0)
 
@@ -69,7 +83,11 @@ func calculateCurrencyRates(
 				return nil, fmt.Errorf("api do not provide %s rate", combination[1])
 			}
 
-			r = append(r, map[string]interface{}{"from": baseCur, "to": combination[1], "rate": val})
+			r = append(r, map[string]interface{}{
+				"from": baseCur,
+				"to":   combination[1],
+				"rate": val,
+			})
 
 			continue
 		}
@@ -80,10 +98,12 @@ func calculateCurrencyRates(
 				return nil, fmt.Errorf("api do not provide %s rate", combination[0])
 			}
 
+			div := baseCurRate / val
+
 			r = append(r, map[string]interface{}{
 				"from": combination[0],
 				"to":   baseCur,
-				"rate": 1 / val,
+				"rate": roundFloat(div, 6),
 			})
 
 			continue
@@ -99,14 +119,19 @@ func calculateCurrencyRates(
 			return nil, fmt.Errorf("api do not provide %s rate", combination[1])
 		}
 
-		r = append(r, map[string]interface{}{"from": combination[0], "to": combination[1], "rate": val2 / val1})
+		div := val2 / val1
 
+		r = append(r, map[string]interface{}{
+			"from": combination[0],
+			"to":   combination[1],
+			"rate": roundFloat(div, 6),
+		})
 	}
 
 	return r, nil
 }
 
-func getPermutations(input []string) [][]string {
+func getAllCombinations(input []string) [][]string {
 	var result [][]string
 	for i := 0; i < len(input); i++ {
 		for j := 0; j < len(input); j++ {
@@ -116,4 +141,9 @@ func getPermutations(input []string) [][]string {
 		}
 	}
 	return result
+}
+
+func roundFloat(val float64, places int) float64 {
+	factor := math.Pow(10, float64(places))
+	return math.Round(val*factor) / factor
 }
