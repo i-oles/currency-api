@@ -67,68 +67,34 @@ func calculateCurrencyRates(
 	rates map[string]float64,
 	currencyCombinations [][]string,
 ) ([]map[string]interface{}, error) {
-	baseCur := "USD"
-	baseCurRate := 1.0
-
-	r := make([]map[string]interface{}, 0)
+	result := make([]map[string]interface{}, 0)
 
 	for _, combination := range currencyCombinations {
 		if len(combination) != 2 {
 			return nil, errors.New("one combination should contain only two values")
 		}
 
-		if combination[0] == baseCur {
-			val, ok := rates[combination[1]]
-			if !ok {
-				return nil, fmt.Errorf("api do not provide %s rate", combination[1])
-			}
+		currency1 := combination[0]
+		currency2 := combination[1]
 
-			r = append(r, map[string]interface{}{
-				"from": baseCur,
-				"to":   combination[1],
-				"rate": roundFloat(val, 6),
-			})
-
-			continue
-		}
-
-		if combination[1] == baseCur {
-			val, ok := rates[combination[0]]
-			if !ok {
-				return nil, fmt.Errorf("api do not provide %s rate", combination[0])
-			}
-
-			div := baseCurRate / val
-
-			r = append(r, map[string]interface{}{
-				"from": combination[0],
-				"to":   baseCur,
-				"rate": roundFloat(div, 6),
-			})
-
-			continue
-		}
-
-		val1, ok := rates[combination[0]]
+		rate1, ok := rates[currency1]
 		if !ok {
-			return nil, fmt.Errorf("api do not provide %s rate", combination[0])
+			return nil, fmt.Errorf("api do not provide %s rate", currency1)
 		}
 
-		val2, ok := rates[combination[1]]
+		rate2, ok := rates[currency2]
 		if !ok {
-			return nil, fmt.Errorf("api do not provide %s rate", combination[1])
+			return nil, fmt.Errorf("api do not provide %s rate", currency2)
 		}
 
-		div := val2 / val1
-
-		r = append(r, map[string]interface{}{
-			"from": combination[0],
-			"to":   combination[1],
-			"rate": roundFloat(div, 6),
+		result = append(result, map[string]interface{}{
+			"from": currency1,
+			"to":   currency2,
+			"rate": roundFloat(rate2/rate1, 6),
 		})
 	}
 
-	return r, nil
+	return result, nil
 }
 
 func getAllCombinations(input []string) [][]string {
