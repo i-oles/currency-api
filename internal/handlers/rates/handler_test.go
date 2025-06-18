@@ -98,7 +98,7 @@ func Test_calculateCurrencyRates(t *testing.T) {
 			},
 		},
 		{
-			name: "calculate for USD, GBP, EUR, SLL",
+			name: "calculate for USD, MKK, BTC, SLL",
 			args: args{
 				rates: map[string]float64{
 					"USD": 1.0,
@@ -191,13 +191,34 @@ func Test_getAllCombinations(t *testing.T) {
 			want: [][]string{
 				{"USD", "GBP"},
 				{"USD", "EUR"},
-				{"EUR", "GBP"},
-				{"EUR", "USD"},
 				{"GBP", "USD"},
 				{"GBP", "EUR"},
+				{"EUR", "USD"},
+				{"EUR", "GBP"},
+			},
+		},
+		{
+			name: "combinations for USD, MMK, BTC, SLL",
+			args: args{
+				input: []string{"USD", "MMK", "BTC", "SLL"},
+			},
+			want: [][]string{
+				{"USD", "MMK"},
+				{"USD", "BTC"},
+				{"USD", "SLL"},
+				{"MMK", "USD"},
+				{"MMK", "BTC"},
+				{"MMK", "SLL"},
+				{"BTC", "USD"},
+				{"BTC", "MMK"},
+				{"BTC", "SLL"},
+				{"SLL", "USD"},
+				{"SLL", "MMK"},
+				{"SLL", "BTC"},
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getAllCombinations(tt.args.input); !reflect.DeepEqual(got, tt.want) {
