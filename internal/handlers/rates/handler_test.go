@@ -97,42 +97,68 @@ func Test_calculateCurrencyRates(t *testing.T) {
 				},
 			},
 		},
+
 		{
-			name: "calculate for USD, MKK, BTC, SLL",
+			name: "calculate for USD, BDT, BHC, INR",
 			args: args{
 				rates: map[string]float64{
 					"USD": 1.0,
-					"MMK": 2098,
-					"BTC": 0.000009548793,
-					"SLL": 20969.5,
+					"BDT": 122.251634,
+					"BHD": 0.377252,
+					"INR": 86.466554,
 				},
 				currencyCombinations: [][]string{
-					{"USD", "GBP"},
-					{"USD", "EUR"},
-					{"EUR", "GBP"},
-					{"EUR", "USD"},
-					{"GBP", "USD"},
-					{"GBP", "EUR"},
+					{"USD", "BDT"},
+					{"USD", "BHD"},
+					{"USD", "INR"},
+					{"BHD", "USD"},
+					{"BHD", "INR"},
+					{"BHD", "BDT"},
+					{"BDT", "BHD"},
+					{"BDT", "INR"},
+					{"BDT", "USD"},
+					{"INR", "USD"},
+					{"INR", "BHD"},
+					{"INR", "BDT"},
 				},
 			},
+
 			want: []map[string]interface{}{
 				{
-					"from": "USD", "to": "EUR", "rate": 0.869136,
+					"from": "USD", "to": "BDT", "rate": 122.251634,
 				},
 				{
-					"from": "USD", "to": "GBP", "rate": 0.743653,
+					"from": "USD", "to": "BHD", "rate": 0.377252,
 				},
 				{
-					"from": "GBP", "to": "USD", "rate": 1.344713,
+					"from": "USD", "to": "INR", "rate": 86.466554,
 				},
 				{
-					"from": "GBP", "to": "EUR", "rate": 1.168739,
+					"from": "BHD", "to": "USD", "rate": 2.650748,
 				},
 				{
-					"from": "EUR", "to": "USD", "rate": 1.150568,
+					"from": "BHD", "to": "INR", "rate": 229.201049,
 				},
 				{
-					"from": "EUR", "to": "GBP", "rate": 0.855623,
+					"from": "BHD", "to": "BDT", "rate": 324.058279,
+				},
+				{
+					"from": "BDT", "to": "BHD", "rate": 0.003086,
+				},
+				{
+					"from": "BDT", "to": "INR", "rate": 0.707283,
+				},
+				{
+					"from": "BDT", "to": "USD", "rate": 0.00818,
+				},
+				{
+					"from": "INR", "to": "BDT", "rate": 1.41386,
+				},
+				{
+					"from": "INR", "to": "BHD", "rate": 0.004363,
+				},
+				{
+					"from": "INR", "to": "USD", "rate": 0.011565,
 				},
 			},
 		},
@@ -271,6 +297,7 @@ func Test_validateParameter(t *testing.T) {
 			wantErr: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := validateParameter(tt.args.currencies); (err != nil) != tt.wantErr {

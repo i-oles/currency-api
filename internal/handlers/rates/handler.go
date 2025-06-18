@@ -86,7 +86,7 @@ func calculateCurrencyRates(
 			r = append(r, map[string]interface{}{
 				"from": baseCur,
 				"to":   combination[1],
-				"rate": val,
+				"rate": roundFloat(val, 6),
 			})
 
 			continue
