@@ -6,3 +6,6 @@ lint:
 
 test:
 	go test -v ./...
+
+build:
+	go build -v -o bin/currency-api cmd/currencyapi/main.go
