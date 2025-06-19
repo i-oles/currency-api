@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"main/internal/api"
+	"main/internal/errs"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -449,7 +450,7 @@ func (m MockFailureCurrencyAPI) GetCurrencyRates(
 	_ context.Context,
 	_ []string,
 ) (api.Response, error) {
-	return api.Response{}, errors.New("error from API")
+	return api.Response{}, errs.APIResponseError("error from API", errors.New("failure"))
 }
 
 func TestHandler_Handle(t *testing.T) {

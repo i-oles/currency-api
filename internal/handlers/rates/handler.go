@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"main/internal/api"
+	"main/internal/errs"
 	"math"
 	"net/http"
 	"strings"
@@ -49,12 +50,20 @@ func (h *Handler) Handle(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			c.JSON(http.StatusGatewayTimeout, gin.H{"error": "currency rate API timeout"})
-		} else {
-			//Here should be different status code, this status code was one of rule in task
-			c.JSON(http.StatusBadRequest, nil)
+
+			return
 		}
 
-		return
+		var appErr *errs.AppError
+		if errors.As(err, &appErr) {
+			c.JSON(appErr.Code, gin.H{"error": appErr.Error()})
+
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+			return
+		}
 	}
 
 	currencyCombinations, err := getAllCombinations(currencies)
@@ -66,9 +75,16 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		var appErr *errs.AppError
+		if errors.As(err, &appErr) {
+			c.JSON(appErr.Code, gin.H{"error": appErr.Error()})
 
-		return
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, result)
@@ -100,7 +116,7 @@ func calculateCurrencyRates(
 	result := make([]map[string]interface{}, 0)
 
 	if len(currencyCombinations) == 0 {
-		return nil, errors.New("no combinations")
+		return nil, errors.New("no combinations given")
 	}
 
 	for _, combination := range currencyCombinations {
@@ -113,12 +129,16 @@ func calculateCurrencyRates(
 
 		rate1, ok := rates[currency1]
 		if !ok {
-			return nil, fmt.Errorf("api do not provide %s rate", currency1)
+			return nil, errs.NotFound("unknown currency",
+				fmt.Errorf("could not find %s in rates", currency1),
+			)
 		}
 
 		rate2, ok := rates[currency2]
 		if !ok {
-			return nil, fmt.Errorf("api do not provide %s rate", currency2)
+			return nil, errs.NotFound("unknown currency",
+				fmt.Errorf("could not find %s in rates", currency2),
+			)
 		}
 
 		result = append(result, map[string]interface{}{
