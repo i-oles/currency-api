@@ -103,6 +103,8 @@ linters-settings:
   mnd:
     ignored-numbers:
       - '1'
+      - '2'
+      - '3'
 
   lll:
     line-length: 100
@@ -115,7 +117,12 @@ formatters:
     - goimports
     - golines
 
-
+issues:
+  exclude-rules:
+    - path: "_test\\.go"
+      linters:
+        - dupl
+        - funlen
 run:
   skip-dirs:
     - "example"

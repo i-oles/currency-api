@@ -3,8 +3,9 @@ package rates
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"main/internal/api"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -19,6 +20,7 @@ func Test_calculateCurrencyRates(t *testing.T) {
 		rates                map[string]float64
 		currencyCombinations [][]string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -105,6 +107,58 @@ func Test_calculateCurrencyRates(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "calculate for GBP",
+			args: args{
+				rates: map[string]float64{
+					"GBP": 0.743653,
+				},
+				currencyCombinations: [][]string{
+					{"GBP"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "calculate for empty rates",
+			args: args{
+				rates: map[string]float64{},
+				currencyCombinations: [][]string{
+					{"BTC", "INR"},
+					{"INR", "BTC"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "not all currencies exists in rates",
+			args: args{
+				rates: map[string]float64{
+					"GBP": 0.743653,
+				},
+				currencyCombinations: [][]string{
+					{"GBP", "INR"},
+					{"INR", "GBP"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "calculate for non existing rates",
+			args: args{
+				rates: map[string]float64{
+					"GBP": 0.743653,
+					"EUR": 0.869136,
+				},
+				currencyCombinations: [][]string{
+					{
+						"AAA", "BBB",
+						"BBB", "AAA",
+					},
+				},
+			},
+			wantErr: true,
+		},
 
 		{
 			name: "calculate for USD, BDT, BHC, INR",
@@ -171,22 +225,50 @@ func Test_calculateCurrencyRates(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := calculateCurrencyRates(tt.args.rates, tt.args.currencyCombinations)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("calculateCurrencyRates() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 
 			sortSlice(got)
 			sortSlice(tt.want)
 
-			if !reflect.DeepEqual(got, tt.want) {
+			if !slicesEqual(got, tt.want) {
 				t.Errorf("calculateCurrencyRates() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
+}
+
+const epsilon = 1e-6
+
+func mapsEqual(got, want map[string]interface{}) bool {
+	if got["from"] != want["from"] || got["to"] != want["to"] {
+		return false
+	}
+
+	gotRate := got["rate"].(float64)
+	wantRate := want["rate"].(float64)
+
+	return math.Abs(gotRate-wantRate) < epsilon
+}
+
+func slicesEqual(got, want []map[string]interface{}) bool {
+	if len(got) != len(want) {
+		return false
+	}
+
+	for i := range got {
+		if !mapsEqual(got[i], want[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func sortSlice(slice []map[string]interface{}) {
@@ -199,29 +281,24 @@ func sortSlice(slice []map[string]interface{}) {
 }
 
 func Test_getAllCombinations(t *testing.T) {
-	type args struct {
-		input []string
-	}
+
 	tests := []struct {
-		name string
-		args args
-		want [][]string
+		name    string
+		input   []string
+		want    [][]string
+		wantErr bool
 	}{
 		{
-			name: "combinations for USD, GBP",
-			args: args{
-				input: []string{"USD", "GBP"},
-			},
+			name:  "combinations for USD, GBP",
+			input: []string{"USD", "GBP"},
 			want: [][]string{
 				{"USD", "GBP"},
 				{"GBP", "USD"},
 			},
 		},
 		{
-			name: "combinations for USD, GBP, EUR",
-			args: args{
-				input: []string{"USD", "GBP", "EUR"},
-			},
+			name:  "combinations for USD, GBP, EUR",
+			input: []string{"USD", "GBP", "EUR"},
 			want: [][]string{
 				{"USD", "GBP"},
 				{"USD", "EUR"},
@@ -232,10 +309,8 @@ func Test_getAllCombinations(t *testing.T) {
 			},
 		},
 		{
-			name: "combinations for USD, MMK, BTC, SLL",
-			args: args{
-				input: []string{"USD", "MMK", "BTC", "SLL"},
-			},
+			name:  "combinations for USD, MMK, BTC, SLL",
+			input: []string{"USD", "MMK", "BTC", "SLL"},
 			want: [][]string{
 				{"USD", "MMK"},
 				{"USD", "BTC"},
@@ -251,11 +326,26 @@ func Test_getAllCombinations(t *testing.T) {
 				{"SLL", "BTC"},
 			},
 		},
+		{
+			name:    "combinations for one currency",
+			input:   []string{"USD"},
+			wantErr: true,
+		},
+		{
+			name:    "combinations for empty list",
+			input:   []string{},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getAllCombinations(tt.args.input); !reflect.DeepEqual(got, tt.want) {
+			got, err := getAllCombinations(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getAllCombinations() error = %v, wantErr %v ", err, tt.wantErr)
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getAllCombinations() = %v, want %v", got, tt.want)
 			}
 		})
@@ -286,7 +376,6 @@ func Test_validateParameter(t *testing.T) {
 			param:   "",
 			wantErr: true,
 		},
-		//TODO: empty param?
 	}
 
 	for _, tt := range tests {
@@ -298,14 +387,14 @@ func Test_validateParameter(t *testing.T) {
 	}
 }
 
-type MockRateAPI struct{}
+type MockCurrencyAPI struct{}
 
-func NewMockRateAPI() MockRateAPI {
-	return MockRateAPI{}
+func NewMockCurrencyAPI() MockCurrencyAPI {
+	return MockCurrencyAPI{}
 }
 
-func (m MockRateAPI) GetCurrencyRates(
-	ctx context.Context,
+func (m MockCurrencyAPI) GetCurrencyRates(
+	_ context.Context, _ []string,
 ) (api.Response, error) {
 	return api.Response{
 		Base: "USD",
@@ -341,10 +430,24 @@ func (m MockRateAPI) GetCurrencyRates(
 	}, nil
 }
 
+type MockFailureCurrencyAPI struct{}
+
+func NewMockFailureCurrencyAPI() MockFailureCurrencyAPI {
+	return MockFailureCurrencyAPI{}
+}
+
+func (m MockFailureCurrencyAPI) GetCurrencyRates(
+	_ context.Context,
+	_ []string,
+) (api.Response, error) {
+	return api.Response{}, errors.New("error from API")
+}
+
 func TestHandler_Handle(t *testing.T) {
 	type fields struct {
 		currencyRateAPI api.CurrencyRate
 	}
+
 	tests := []struct {
 		name         string
 		fields       fields
@@ -355,7 +458,7 @@ func TestHandler_Handle(t *testing.T) {
 		{
 			name: "test param USD,GBP, status ok",
 			fields: fields{
-				currencyRateAPI: NewMockRateAPI(),
+				currencyRateAPI: NewMockCurrencyAPI(),
 			},
 			queryParams: "USD,GBP",
 			wantStatus:  http.StatusOK,
@@ -371,7 +474,7 @@ func TestHandler_Handle(t *testing.T) {
 		{
 			name: "test param USD, status 400",
 			fields: fields{
-				currencyRateAPI: NewMockRateAPI(),
+				currencyRateAPI: NewMockCurrencyAPI(),
 			},
 			queryParams:  "USD",
 			wantStatus:   http.StatusBadRequest,
@@ -380,13 +483,23 @@ func TestHandler_Handle(t *testing.T) {
 		{
 			name: "test param '', status 400",
 			fields: fields{
-				currencyRateAPI: NewMockRateAPI(),
+				currencyRateAPI: NewMockCurrencyAPI(),
 			},
 			queryParams:  "",
 			wantStatus:   http.StatusBadRequest,
 			wantResponse: nil,
 		},
+		{
+			name: "test api failure, status 400",
+			fields: fields{
+				currencyRateAPI: NewMockFailureCurrencyAPI(),
+			},
+			queryParams:  "BTC",
+			wantStatus:   http.StatusBadRequest,
+			wantResponse: nil,
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
@@ -394,8 +507,7 @@ func TestHandler_Handle(t *testing.T) {
 			c, _ := gin.CreateTestContext(recorder)
 
 			c.Request = httptest.NewRequestWithContext(
-				context.Background(), "GET", fmt.Sprintf("/rates?currencies=%s", tt.queryParams),
-				nil)
+				context.Background(), "GET", "/rates?currencies="+tt.queryParams, nil)
 
 			handler := NewHandler(tt.fields.currencyRateAPI)
 			handler.Handle(c)

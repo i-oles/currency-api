@@ -26,7 +26,10 @@ func New() OpenExchange {
 	}
 }
 
-func (o OpenExchange) GetCurrencyRates(ctx context.Context) (api.Response, error) {
+func (o OpenExchange) GetCurrencyRates(
+	ctx context.Context,
+	currencies []string,
+) (api.Response, error) {
 	baseURL, err := url.Parse(o.apiURL)
 	if err != nil {
 		return api.Response{}, fmt.Errorf("error parsing api url %s: %w", o.apiURL, err)
@@ -63,6 +66,19 @@ func (o OpenExchange) GetCurrencyRates(ctx context.Context) (api.Response, error
 	if err != nil {
 		return api.Response{}, fmt.Errorf("error unmarshaling response body %s: %w", bodyBytes, err)
 	}
+
+	neededCurrencies := make(map[string]float64, len(currencies))
+
+	for _, currency := range currencies {
+		val, ok := result.Rates[currency]
+		if !ok {
+			return api.Response{}, fmt.Errorf("currency %s not found", currency)
+		}
+
+		neededCurrencies[currency] = val
+	}
+
+	result.Rates = neededCurrencies
 
 	return result, nil
 }

@@ -25,6 +25,7 @@ func (h *Handler) Handle(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	param := c.Query("currencies")
+
 	err := validateParameter(param)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, nil)
@@ -34,7 +35,7 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	currencies := strings.Split(param, ",")
 
-	resp, err := h.currencyRateAPI.GetCurrencyRates(ctx)
+	resp, err := h.currencyRateAPI.GetCurrencyRates(ctx, currencies)
 	if err != nil {
 		//TODO: add note about the fact that it is not a badRequest
 		c.JSON(http.StatusBadRequest, nil)
@@ -42,7 +43,12 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	currencyCombinations := getAllCombinations(currencies)
+	currencyCombinations, err := getAllCombinations(currencies)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, nil)
+
+		return
+	}
 
 	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
 	if err != nil {
@@ -66,6 +72,25 @@ func validateParameter(param string) error {
 	}
 
 	return nil
+}
+
+func getAllCombinations(input []string) ([][]string, error) {
+	n := len(input)
+	if n < 2 {
+		return nil, errors.New("not enough elements in to get the combinations")
+	}
+
+	result := make([][]string, 0, n*(n-1))
+
+	for _, curr1 := range input {
+		for _, curr2 := range input {
+			if curr1 != curr2 {
+				result = append(result, []string{curr1, curr2})
+			}
+		}
+	}
+
+	return result, nil
 }
 
 func calculateCurrencyRates(
@@ -102,19 +127,8 @@ func calculateCurrencyRates(
 	return result, nil
 }
 
-func getAllCombinations(input []string) [][]string {
-	var result [][]string
-	for i := 0; i < len(input); i++ {
-		for j := 0; j < len(input); j++ {
-			if i != j {
-				result = append(result, []string{input[i], input[j]})
-			}
-		}
-	}
-	return result
-}
-
 func roundFloat(val float64, places int) float64 {
 	factor := math.Pow(10, float64(places))
+
 	return math.Round(val*factor) / factor
 }

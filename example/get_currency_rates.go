@@ -9,7 +9,7 @@ import (
 func main() {
 	openExchange := openexchange.New()
 
-	resp, err := openExchange.GetCurrencyRates(context.Background())
+	resp, err := openExchange.GetCurrencyRates(context.Background(), []string{"USD", "EUR"})
 	if err != nil {
 		panic(err)
 	}

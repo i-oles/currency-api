@@ -3,7 +3,7 @@ package api
 import "context"
 
 type CurrencyRate interface {
-	GetCurrencyRates(ctx context.Context) (Response, error)
+	GetCurrencyRates(ctx context.Context, currencies []string) (Response, error)
 }
 
 type Response struct {
