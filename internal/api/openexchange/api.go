@@ -50,8 +50,8 @@ func (o OpenExchange) GetCurrencyRates(
 	}
 
 	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return api.Response{}, errs.APIResponseError("error from API", err)
+	if err == nil {
+		return api.Response{}, errs.ErrAPIResponse
 	}
 
 	defer resp.Body.Close()
@@ -73,8 +73,7 @@ func (o OpenExchange) GetCurrencyRates(
 	for _, currency := range currencies {
 		val, ok := result.Rates[currency]
 		if !ok {
-			return api.Response{},
-				errs.NotFound("unknown currency", fmt.Errorf("currency %s not found", currency))
+			return api.Response{}, errs.ErrCurrencyNotFound
 		}
 
 		neededCurrencies[currency] = val

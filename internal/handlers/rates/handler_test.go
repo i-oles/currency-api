@@ -2,7 +2,6 @@ package rates
 
 import (
 	"context"
-	"errors"
 	"main/internal/api"
 	"main/internal/errs"
 	"math"
@@ -450,7 +449,7 @@ func (m MockFailureCurrencyAPI) GetCurrencyRates(
 	_ context.Context,
 	_ []string,
 ) (api.Response, error) {
-	return api.Response{}, errs.APIResponseError("error from API", errors.New("failure"))
+	return api.Response{}, errs.ErrAPIResponse
 }
 
 func TestHandler_Handle(t *testing.T) {

@@ -3,7 +3,6 @@ package rates
 import (
 	"context"
 	"errors"
-	"fmt"
 	"main/internal/api"
 	"main/internal/errs"
 	"math"
@@ -36,11 +35,15 @@ func (h *Handler) Handle(c *gin.Context) {
 	param := c.Query("currencies")
 	if param == "" {
 		c.JSON(http.StatusBadRequest, nil)
+
+		return
 	}
 
 	currencies := strings.Split(param, ",")
 	if len(currencies) < 2 {
 		c.JSON(http.StatusBadRequest, nil)
+
+		return
 	}
 
 	apiCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -54,16 +57,21 @@ func (h *Handler) Handle(c *gin.Context) {
 			return
 		}
 
-		var appErr *errs.AppError
-		if errors.As(err, &appErr) {
-			c.JSON(appErr.Code, gin.H{"error": appErr.Error()})
-
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, errs.ErrAPIResponse) {
+			c.JSON(errs.StatusCode400, gin.H{})
 
 			return
 		}
+
+		if errors.Is(err, errs.ErrCurrencyNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": errs.ErrCurrencyNotFound.Error()})
+
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		return
 	}
 
 	currencyCombinations, err := getAllCombinations(currencies)
@@ -75,16 +83,15 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
 	if err != nil {
-		var appErr *errs.AppError
-		if errors.As(err, &appErr) {
-			c.JSON(appErr.Code, gin.H{"error": appErr.Error()})
-
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, errs.ErrCurrencyNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": errs.ErrCurrencyNotFound.Error()})
 
 			return
 		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		return
 	}
 
 	c.JSON(http.StatusOK, result)
@@ -129,16 +136,12 @@ func calculateCurrencyRates(
 
 		rate1, ok := rates[currency1]
 		if !ok {
-			return nil, errs.NotFound("unknown currency",
-				fmt.Errorf("could not find %s in rates", currency1),
-			)
+			return nil, errs.ErrCurrencyNotFound
 		}
 
 		rate2, ok := rates[currency2]
 		if !ok {
-			return nil, errs.NotFound("unknown currency",
-				fmt.Errorf("could not find %s in rates", currency2),
-			)
+			return nil, errs.ErrCurrencyNotFound
 		}
 
 		result = append(result, map[string]interface{}{

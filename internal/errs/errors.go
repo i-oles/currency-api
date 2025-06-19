@@ -1,36 +1,15 @@
 package errs
 
-import "net/http"
-
-const (
-	statusCode400 = http.StatusBadRequest
+import (
+	"errors"
+	"net/http"
 )
 
-type AppError struct {
-	Message string `json:"message"`
-	Code    int    `json:"-"`
-	Err     error  `json:"-"`
-}
+const (
+	StatusCode400 = http.StatusBadRequest
+)
 
-func (e *AppError) Error() string {
-	if e.Err != nil {
-		return e.Err.Error()
-	}
-	return e.Message
-}
-
-func New(msg string, code int, err error) *AppError {
-	return &AppError{
-		Message: msg,
-		Code:    code,
-		Err:     err,
-	}
-}
-
-func NotFound(msg string, err error) *AppError {
-	return New(msg, http.StatusNotFound, err)
-}
-
-func APIResponseError(msg string, err error) *AppError {
-	return New(msg, statusCode400, err)
-}
+var (
+	ErrAPIResponse      = errors.New("error api response error")
+	ErrCurrencyNotFound = errors.New("error unknown currency")
+)
