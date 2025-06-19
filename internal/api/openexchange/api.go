@@ -50,7 +50,7 @@ func (o OpenExchange) GetCurrencyRates(
 	}
 
 	resp, err := http.DefaultClient.Do(req)
-	if err == nil {
+	if err != nil {
 		return api.Response{}, errs.ErrAPIResponse
 	}
 
