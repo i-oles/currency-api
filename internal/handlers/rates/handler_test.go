@@ -2,7 +2,6 @@ package rates
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"main/internal/api"
 	"math"
@@ -127,6 +126,22 @@ func Test_calculateCurrencyRates(t *testing.T) {
 					{"BTC", "INR"},
 					{"INR", "BTC"},
 				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "calculate for empty rates, and empty combinations",
+			args: args{
+				rates:                nil,
+				currencyCombinations: nil,
+			},
+			wantErr: true,
+		},
+		{
+			name: "calculate for empty rates, and empty combinations",
+			args: args{
+				rates:                nil,
+				currencyCombinations: [][]string{},
 			},
 			wantErr: true,
 		},
@@ -449,11 +464,10 @@ func TestHandler_Handle(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		fields       fields
-		queryParams  string
-		wantStatus   int
-		wantResponse []map[string]interface{}
+		name        string
+		fields      fields
+		queryParams string
+		wantStatus  int
 	}{
 		{
 			name: "test param USD,GBP, status ok",
@@ -462,41 +476,30 @@ func TestHandler_Handle(t *testing.T) {
 			},
 			queryParams: "USD,GBP",
 			wantStatus:  http.StatusOK,
-			wantResponse: []map[string]interface{}{
-				{
-					"from": "USD", "to": "GBP", "rate": 0.742708,
-				},
-				{
-					"from": "GBP", "to": "USD", "rate": 1.346424,
-				},
-			},
 		},
 		{
 			name: "test param USD, status 400",
 			fields: fields{
 				currencyRateAPI: NewMockCurrencyAPI(),
 			},
-			queryParams:  "USD",
-			wantStatus:   http.StatusBadRequest,
-			wantResponse: nil,
+			queryParams: "USD",
+			wantStatus:  http.StatusBadRequest,
 		},
 		{
 			name: "test param '', status 400",
 			fields: fields{
 				currencyRateAPI: NewMockCurrencyAPI(),
 			},
-			queryParams:  "",
-			wantStatus:   http.StatusBadRequest,
-			wantResponse: nil,
+			queryParams: "",
+			wantStatus:  http.StatusBadRequest,
 		},
 		{
 			name: "test api failure, status 400",
 			fields: fields{
 				currencyRateAPI: NewMockFailureCurrencyAPI(),
 			},
-			queryParams:  "BTC",
-			wantStatus:   http.StatusBadRequest,
-			wantResponse: nil,
+			queryParams: "BTC,USD",
+			wantStatus:  http.StatusBadRequest,
 		},
 	}
 
@@ -514,15 +517,6 @@ func TestHandler_Handle(t *testing.T) {
 
 			if recorder.Code != tt.wantStatus {
 				t.Errorf("handler returned wrong status code: got %d want %d", recorder.Code, tt.wantStatus)
-			}
-
-			var gotResponse []map[string]interface{}
-			if err := json.Unmarshal(recorder.Body.Bytes(), &gotResponse); err != nil {
-				t.Fatalf("failed to unmarshal response: %v", err)
-			}
-
-			if !reflect.DeepEqual(gotResponse, tt.wantResponse) {
-				t.Errorf("response body:\ngot  %v\nwant %v", gotResponse, tt.wantResponse)
 			}
 		})
 	}

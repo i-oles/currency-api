@@ -52,7 +52,7 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 
 		return
 	}
@@ -98,6 +98,10 @@ func calculateCurrencyRates(
 	currencyCombinations [][]string,
 ) ([]map[string]interface{}, error) {
 	result := make([]map[string]interface{}, 0)
+
+	if currencyCombinations == nil || len(currencyCombinations) == 0 {
+		return nil, errors.New("no combinations")
+	}
 
 	for _, combination := range currencyCombinations {
 		if len(combination) != 2 {
