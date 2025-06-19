@@ -1,12 +1,14 @@
 package rates
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"main/internal/api"
 	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,21 +26,33 @@ func NewHandler(currencyRateAPI api.CurrencyRate) *Handler {
 func (h *Handler) Handle(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	param := c.Query("currencies")
-
-	err := validateParameter(param)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, nil)
+	if err := ctx.Err(); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "service is shutting down"})
 
 		return
 	}
 
-	currencies := strings.Split(param, ",")
-
-	resp, err := h.currencyRateAPI.GetCurrencyRates(ctx, currencies)
-	if err != nil {
-		//TODO: add note about the fact that it is not a badRequest
+	param := c.Query("currencies")
+	if param == "" {
 		c.JSON(http.StatusBadRequest, nil)
+	}
+
+	currencies := strings.Split(param, ",")
+	if len(currencies) < 2 {
+		c.JSON(http.StatusBadRequest, nil)
+	}
+
+	apiCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	resp, err := h.currencyRateAPI.GetCurrencyRates(apiCtx, currencies)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			c.JSON(http.StatusGatewayTimeout, gin.H{"error": "currency rate API timeout"})
+		} else {
+			//Here should be different status code, this status code was one of rule in task
+			c.JSON(http.StatusBadRequest, nil)
+		}
 
 		return
 	}
@@ -52,26 +66,12 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 
 		return
 	}
 
 	c.JSON(http.StatusOK, result)
-}
-
-func validateParameter(param string) error {
-	if param == "" {
-		return errors.New("param cannot be empty")
-	}
-
-	currencies := strings.Split(param, ",")
-
-	if len(currencies) < 2 {
-		return errors.New("not enough param given")
-	}
-
-	return nil
 }
 
 func getAllCombinations(input []string) ([][]string, error) {
@@ -99,7 +99,7 @@ func calculateCurrencyRates(
 ) ([]map[string]interface{}, error) {
 	result := make([]map[string]interface{}, 0)
 
-	if currencyCombinations == nil || len(currencyCombinations) == 0 {
+	if len(currencyCombinations) == 0 {
 		return nil, errors.New("no combinations")
 	}
 

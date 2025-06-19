@@ -133,14 +133,6 @@ func Test_calculateCurrencyRates(t *testing.T) {
 			name: "calculate for empty rates, and empty combinations",
 			args: args{
 				rates:                nil,
-				currencyCombinations: nil,
-			},
-			wantErr: true,
-		},
-		{
-			name: "calculate for empty rates, and empty combinations",
-			args: args{
-				rates:                nil,
 				currencyCombinations: [][]string{},
 			},
 			wantErr: true,
@@ -283,6 +275,7 @@ func slicesEqual(got, want []map[string]interface{}) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -367,40 +360,41 @@ func Test_getAllCombinations(t *testing.T) {
 	}
 }
 
-func Test_validateParameter(t *testing.T) {
-	tests := []struct {
-		name    string
-		param   string
-		wantErr bool
-	}{
-		{
-			name:  "validation ok for USD,GBP",
-			param: "USD,GBP",
-		},
-		{
-			name:  "validation ok for USD,GBP,PLN,EUR,INR",
-			param: "USD,GBP,PLN,EUR,INR",
-		},
-		{
-			name:    "error validation for USD",
-			param:   "USD",
-			wantErr: true,
-		},
-		{
-			name:    "error validation for empty string",
-			param:   "",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := validateParameter(tt.param); (err != nil) != tt.wantErr {
-				t.Errorf("validateParameter() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
+//TODO remove me?
+//func Test_validateParameter(t *testing.T) {
+//	tests := []struct {
+//		name    string
+//		param   string
+//		wantErr bool
+//	}{
+//		{
+//			name:  "validation ok for USD,GBP",
+//			param: "USD,GBP",
+//		},
+//		{
+//			name:  "validation ok for USD,GBP,PLN,EUR,INR",
+//			param: "USD,GBP,PLN,EUR,INR",
+//		},
+//		{
+//			name:    "error validation for USD",
+//			param:   "USD",
+//			wantErr: true,
+//		},
+//		{
+//			name:    "error validation for empty string",
+//			param:   "",
+//			wantErr: true,
+//		},
+//	}
+//
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			if err := validateParameter(tt.param); (err != nil) != tt.wantErr {
+//				t.Errorf("validateParameter() error = %v, wantErr %v", err, tt.wantErr)
+//			}
+//		})
+//	}
+//}
 
 type MockCurrencyAPI struct{}
 

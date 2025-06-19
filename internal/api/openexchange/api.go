@@ -30,27 +30,27 @@ func (o OpenExchange) GetCurrencyRates(
 	ctx context.Context,
 	currencies []string,
 ) (api.Response, error) {
-	baseURL, err := url.Parse(o.apiURL)
+	reqURL, err := url.Parse(o.apiURL)
 	if err != nil {
 		return api.Response{}, fmt.Errorf("error parsing api url %s: %w", o.apiURL, err)
 	}
 
-	baseURL.Path = path.Join(baseURL.Path, o.apiSourceFile)
+	reqURL.Path = path.Join(reqURL.Path, o.apiSourceFile)
 
 	query := url.Values{}
 	query.Set("app_id", AppID)
 	query.Set("base", o.baseCurrency)
 
-	baseURL.RawQuery = query.Encode()
+	reqURL.RawQuery = query.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if err != nil {
-		return api.Response{}, fmt.Errorf("error creating request %s: %w", baseURL.String(), err)
+		return api.Response{}, fmt.Errorf("error creating request %s: %w", reqURL.String(), err)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return api.Response{}, fmt.Errorf("error making request %s: %w", baseURL.String(), err)
+		return api.Response{}, fmt.Errorf("error making request %s: %w", reqURL.String(), err)
 	}
 
 	defer resp.Body.Close()
