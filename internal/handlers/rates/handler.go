@@ -58,7 +58,7 @@ func (h *Handler) Handle(c *gin.Context) {
 		}
 
 		if errors.Is(err, errs.ErrAPIResponse) {
-			c.JSON(errs.StatusCode400, gin.H{})
+			c.JSON(errs.StatusCode400, nil)
 
 			return
 		}
@@ -76,7 +76,7 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	currencyCombinations, err := getAllCombinations(currencies)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, nil)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 
 		return
 	}
