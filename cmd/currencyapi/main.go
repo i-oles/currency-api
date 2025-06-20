@@ -15,9 +15,22 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	_ = godotenv.Load()
+
+	appID := os.Getenv("APP_ID")
+	if appID == "" {
+		log.Fatal(
+			"personal APP_ID for openExchangeAPI is not set." +
+				"Please set APP_ID env. Details in the README.md",
+		)
+	}
+
+	log.Println("using appID for openExchangeAPI:", appID)
+
 	var cfg configuration.Configuration
 
 	err := configuration.GetConfig("./config", &cfg)
@@ -31,7 +44,7 @@ func main() {
 
 	api := router.Group("/")
 
-	openExchangeAPI := openExchange.New(cfg.APIURL)
+	openExchangeAPI := openExchange.New(cfg.APIURL, appID)
 
 	ratesHandler := rates.NewHandler(openExchangeAPI)
 	api.GET("/rates", ratesHandler.Handle)

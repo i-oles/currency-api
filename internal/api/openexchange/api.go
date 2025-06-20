@@ -14,13 +14,15 @@ import (
 
 type OpenExchange struct {
 	apiURL        string
+	apiAppID      string
 	apiSourceFile string
 	baseCurrency  string
 }
 
-func New(apiURL string) OpenExchange {
+func New(apiURL, apiAppID string) OpenExchange {
 	return OpenExchange{
 		apiURL:        apiURL,
+		apiAppID:      apiAppID,
 		apiSourceFile: "latest.json",
 		baseCurrency:  "USD",
 	}
@@ -38,7 +40,7 @@ func (o OpenExchange) GetCurrencyRates(
 	reqURL.Path = path.Join(reqURL.Path, o.apiSourceFile)
 
 	query := url.Values{}
-	query.Set("app_id", AppID)
+	query.Set("app_id", o.apiAppID)
 	query.Set("base", o.baseCurrency)
 
 	reqURL.RawQuery = query.Encode()
