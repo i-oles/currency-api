@@ -34,42 +34,46 @@ func (h *Handler) Handle(c *gin.Context) {
 	targetCurrency := c.Query("to")
 	amountStr := c.Query("amount")
 
-	if sourceCurrency == "" || targetCurrency == "" || amountStr == "" {
-		c.JSON(http.StatusBadRequest, nil)
+	result, err := h.exchange(sourceCurrency, targetCurrency, amountStr)
+	if err != nil {
+		h.handleCurrencyRateError(c, err)
 
 		return
+	}
+
+	c.JSON(http.StatusOK,
+		gin.H{"from": sourceCurrency, "to": targetCurrency, "amount": result},
+	)
+}
+
+func (h *Handler) exchange(
+	sourceCurrency, targetCurrency, amountStr string,
+) (string, error) {
+	if sourceCurrency == "" || targetCurrency == "" || amountStr == "" {
+		return "", errs.ErrBadRequest
 	}
 
 	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error Decimal:": err.Error()})
-
-		return
+		return "", errs.ErrBadRequest
 	}
 
 	if amount.LessThan(decimal.NewFromFloat(0)) {
-		c.JSON(http.StatusBadRequest, nil)
-
-		return
+		return "", errs.ErrBadRequest
 	}
 
 	sourceCurrencyDetails, err := h.CurrencyRateRepo.Get(sourceCurrency)
 	if err != nil {
-		h.handleCurrencyRateError(c, err)
-
-		return
+		return "", err
 	}
 
 	targetCurrencyDetails, err := h.CurrencyRateRepo.Get(targetCurrency)
 	if err != nil {
-		h.handleCurrencyRateError(c, err)
-
-		return
+		return "", err
 	}
 
 	if len(sourceCurrencyDetails) != 2 && len(targetCurrencyDetails) != 2 {
-		c.JSON(http.StatusBadRequest, nil)
-		return
+		return "", errors.New("len of currency details is invalid")
 	}
 
 	sourceRate := decimal.NewFromFloat(sourceCurrencyDetails[1])
@@ -79,11 +83,9 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	result := amount.Mul(exchangeRate)
 
-	c.JSON(http.StatusOK, gin.H{
-		"from":   sourceCurrency,
-		"to":     targetCurrency,
-		"amount": result.StringFixed(int32(targetCurrencyDetails[0])),
-	})
+	decimalPlaces := int32(targetCurrencyDetails[0])
+
+	return result.StringFixed(decimalPlaces), nil
 }
 
 func (h *Handler) handleCurrencyRateError(c *gin.Context, err error) {
@@ -96,6 +98,8 @@ func (h *Handler) handleCurrencyRateError(c *gin.Context, err error) {
 		h.sendErrorResponse(c, http.StatusNotFound, errs.ErrCurrencyNotFound.Error())
 	case errors.Is(err, errs.ErrRepoCurrencyNotFound):
 		h.sendErrorResponse(c, http.StatusBadRequest, errs.ErrRepoCurrencyNotFound.Error())
+	case errors.Is(err, errs.ErrBadRequest):
+		h.sendErrorResponse(c, http.StatusBadRequest, "")
 	default:
 		h.sendErrorResponse(c, http.StatusInternalServerError, err.Error())
 	}
