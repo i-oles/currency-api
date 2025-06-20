@@ -10,6 +10,7 @@ const (
 )
 
 var (
-	ErrAPIResponse      = errors.New("error api response error")
-	ErrCurrencyNotFound = errors.New("error unknown currency")
+	ErrAPIResponse          = errors.New("error api response error")
+	ErrRepoCurrencyNotFound = errors.New("error repo currency not found error")
+	ErrCurrencyNotFound     = errors.New("error unknown currency")
 )

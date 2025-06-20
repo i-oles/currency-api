@@ -7,7 +7,9 @@ import (
 	"log/slog"
 	openExchange "main/internal/api/openexchange"
 	"main/internal/configuration"
+	"main/internal/handlers/exchange"
 	"main/internal/handlers/rates"
+	"main/internal/repository/memory"
 	"net/http"
 	"os"
 	"os/signal"
@@ -48,6 +50,11 @@ func main() {
 
 	ratesHandler := rates.NewHandler(openExchangeAPI)
 	api.GET("/rates", ratesHandler.Handle)
+
+	currencyRateRepo := memory.NewCurrencyRateRepo()
+	exchangeHandler := exchange.NewHandler(currencyRateRepo)
+
+	api.GET("/exchange", exchangeHandler.Handle)
 
 	srv := &http.Server{
 		Addr:              cfg.ListenAddress,
