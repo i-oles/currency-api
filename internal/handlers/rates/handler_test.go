@@ -138,38 +138,8 @@ func (m MockCurrencyAPI) GetCurrencyRates(
 	}
 
 	return api.Response{
-		Base:  "USD",
-		Rates: rates,
-		//Rates: map[string]float64{
-		//	"BDT": 122.251634,
-		//	"BHD": 0.377252,
-		//	"DKK": 6.48352,
-		//	"DOP": 59.202312,
-		//	"DZD": 130.22232,
-		//	"EGP": 50.458337,
-		//	"ERN": 15,
-		//	"EUR": 0.869136,
-		//	"ETB": 134.8,
-		//	"FJD": 2.24725,
-		//	"FKP": 0.742708,
-		//	"GBP": 0.743653,
-		//	"GEL": 2.72,
-		//	"GGP": 0.742708,
-		//	"GHS": 10.295649,
-		//	"GIP": 0.742708,
-		//	"GMD": 71.500005,
-		//	"GNF": 8658.789126,
-		//	"GTQ": 7.677452,
-		//	"GYD": 209.058301,
-		//	"IMP": 0.742708,
-		//	"IQD": 1309.719481,
-		//	"INR": 86.466554,
-		//	"IRR": 42125,
-		//	"UAH": 41.534469,
-		//	"UGX": 3593.775173,
-		//	"USD": 1,
-		//	"UYU": 40.984695,
-		//},
+		Base:      "USD",
+		Rates:     rates,
 		Timestamp: 1750240800,
 	}, nil
 }
@@ -424,6 +394,7 @@ func Test_calculateCurrencyRates(t *testing.T) {
 		rates                map[string]float64
 		currencyCombinations [][]string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -462,8 +433,10 @@ func Test_calculateCurrencyRates(t *testing.T) {
 			got, err := calculateCurrencyRates(tt.args.rates, tt.args.currencyCombinations)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("calculateCurrencyRates() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
+
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("calculateCurrencyRates() got = %v, want %v", got, tt.want)
 			}

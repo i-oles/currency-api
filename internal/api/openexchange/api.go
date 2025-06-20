@@ -18,10 +18,9 @@ type OpenExchange struct {
 	baseCurrency  string
 }
 
-func New() OpenExchange {
+func New(apiURL string) OpenExchange {
 	return OpenExchange{
-		//TODO: move url to config?
-		apiURL:        "https://openexchangerates.org/api/",
+		apiURL:        apiURL,
 		apiSourceFile: "latest.json",
 		baseCurrency:  "USD",
 	}

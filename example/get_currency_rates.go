@@ -7,9 +7,9 @@ import (
 )
 
 func main() {
-	openExchange := openexchange.New()
+	openExchange := openexchange.New("https://openexchangerates.org/api/")
 
-	resp, err := openExchange.GetCurrencyRates(context.Background(), []string{"USD", "EUR"})
+	resp, err := openExchange.GetCurrencyRates(context.Background(), []string{"USD"})
 	if err != nil {
 		panic(err)
 	}

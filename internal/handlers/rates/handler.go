@@ -51,25 +51,7 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	resp, err := h.currencyRateAPI.GetCurrencyRates(apiCtx, currencies)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			c.JSON(http.StatusGatewayTimeout, gin.H{"error": "currency rate API timeout"})
-
-			return
-		}
-
-		if errors.Is(err, errs.ErrAPIResponse) {
-			c.JSON(errs.StatusCode400, nil)
-
-			return
-		}
-
-		if errors.Is(err, errs.ErrCurrencyNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": errs.ErrCurrencyNotFound.Error()})
-
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		h.handleCurrencyRateError(c, err)
 
 		return
 	}
@@ -83,13 +65,7 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
 	if err != nil {
-		if errors.Is(err, errs.ErrCurrencyNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": errs.ErrCurrencyNotFound.Error()})
-
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		h.handleCurrencyRateError(c, err)
 
 		return
 	}
@@ -158,4 +134,25 @@ func roundFloat(val float64, places int) float64 {
 	factor := math.Pow(10, float64(places))
 
 	return math.Round(val*factor) / factor
+}
+
+func (h *Handler) handleCurrencyRateError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		h.sendErrorResponse(c, http.StatusGatewayTimeout, "currency rate API timeout")
+	case errors.Is(err, errs.ErrAPIResponse):
+		h.sendErrorResponse(c, errs.StatusCode400, "")
+	case errors.Is(err, errs.ErrCurrencyNotFound):
+		h.sendErrorResponse(c, http.StatusNotFound, errs.ErrCurrencyNotFound.Error())
+	default:
+		h.sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+	}
+}
+
+func (h *Handler) sendErrorResponse(c *gin.Context, status int, message string) {
+	if message == "" {
+		c.JSON(status, nil)
+	} else {
+		c.JSON(status, gin.H{"error": message})
+	}
 }
