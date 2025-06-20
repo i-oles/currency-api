@@ -1,7 +1,6 @@
 package exchange
 
 import (
-	"context"
 	"errors"
 	"main/internal/errs"
 	"main/internal/repository"
@@ -13,11 +12,16 @@ import (
 
 type Handler struct {
 	CurrencyRateRepo repository.CurrencyRate
+	ErrorHandler     errs.ErrorHandler
 }
 
-func NewHandler(currencyRateRepo repository.CurrencyRate) *Handler {
+func NewHandler(
+	currencyRateRepo repository.CurrencyRate,
+	errorHandler errs.ErrorHandler,
+) *Handler {
 	return &Handler{
 		CurrencyRateRepo: currencyRateRepo,
+		ErrorHandler:     errorHandler,
 	}
 }
 
@@ -36,7 +40,7 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	result, err := h.exchange(sourceCurrency, targetCurrency, amountStr)
 	if err != nil {
-		h.handleCurrencyRateError(c, err)
+		h.ErrorHandler.Handle(c, err)
 
 		return
 	}
@@ -86,29 +90,4 @@ func (h *Handler) exchange(
 	decimalPlaces := int32(targetCurrencyDetails[0])
 
 	return result.StringFixed(decimalPlaces), nil
-}
-
-func (h *Handler) handleCurrencyRateError(c *gin.Context, err error) {
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		h.sendErrorResponse(c, http.StatusGatewayTimeout, "currency rate API timeout")
-	case errors.Is(err, errs.ErrAPIResponse):
-		h.sendErrorResponse(c, errs.StatusCode400, "")
-	case errors.Is(err, errs.ErrCurrencyNotFound):
-		h.sendErrorResponse(c, http.StatusNotFound, errs.ErrCurrencyNotFound.Error())
-	case errors.Is(err, errs.ErrRepoCurrencyNotFound):
-		h.sendErrorResponse(c, http.StatusBadRequest, errs.ErrRepoCurrencyNotFound.Error())
-	case errors.Is(err, errs.ErrBadRequest):
-		h.sendErrorResponse(c, http.StatusBadRequest, "")
-	default:
-		h.sendErrorResponse(c, http.StatusInternalServerError, err.Error())
-	}
-}
-
-func (h *Handler) sendErrorResponse(c *gin.Context, status int, message string) {
-	if message == "" {
-		c.JSON(status, nil)
-	} else {
-		c.JSON(status, gin.H{"error": message})
-	}
 }

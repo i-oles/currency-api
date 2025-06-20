@@ -3,6 +3,8 @@ package errs
 import (
 	"errors"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -15,3 +17,7 @@ var (
 	ErrCurrencyNotFound     = errors.New("error unknown currency")
 	ErrBadRequest           = errors.New("error invalid request")
 )
+
+type ErrorHandler interface {
+	Handle(c *gin.Context, err error)
+}
