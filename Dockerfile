@@ -14,8 +14,7 @@ RUN CGO_ENABLED=0 GOOS=linux make build
 FROM alpine:latest
 WORKDIR /app
 
-EXPOSE 8080
-
 COPY --from=builder /app/bin/currency-api /app/currency-api
+COPY --from=builder /app/config /app/config
 
 ENTRYPOINT ["/app/currency-api"]
