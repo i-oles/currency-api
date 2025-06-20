@@ -100,7 +100,7 @@ func (h *Handler) Handle(c *gin.Context) {
 func getAllCombinations(input []string) ([][]string, error) {
 	n := len(input)
 	if n < 2 {
-		return nil, errors.New("not enough elements in to get the combinations")
+		return nil, errors.New("not enough elements to generate combinations")
 	}
 
 	result := make([][]string, 0, n*(n-1))
@@ -128,7 +128,7 @@ func calculateCurrencyRates(
 
 	for _, combination := range currencyCombinations {
 		if len(combination) != 2 {
-			return nil, errors.New("one combination should contain only two values")
+			return nil, errors.New("one combination should contain exactly two values")
 		}
 
 		currency1 := combination[0]

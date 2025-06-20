@@ -3,6 +3,7 @@ package rates
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"main/internal/api"
 	"main/internal/errs"
 	"math"
@@ -90,67 +91,85 @@ type MockCurrencyAPI struct {
 	err error
 }
 
-func NewMockCurrencyAPI() MockCurrencyAPI {
+func NewMockAPISuccess() MockCurrencyAPI {
 	return MockCurrencyAPI{}
 }
-func NewMockCurrencyNotFoundErrAPI() MockCurrencyAPI {
+
+func NewMockAPICurrencyNotFound() MockCurrencyAPI {
 	return MockCurrencyAPI{
 		err: errs.ErrCurrencyNotFound,
 	}
 }
 
-func NewMockApiRespErrCurrencyAPI() MockCurrencyAPI {
+func NewMockAPIInternalErr() MockCurrencyAPI {
+	return MockCurrencyAPI{
+		err: errors.New("random error"),
+	}
+}
+
+func NewMockAPIFailureResp() MockCurrencyAPI {
 	return MockCurrencyAPI{
 		err: errs.ErrAPIResponse,
 	}
 }
 
-func NewMockNotEnoughCurrenciesAPI() MockCurrencyAPI {
-	return MockCurrencyAPI{}
-}
-
-func NewMockEmptyParamCurrencyAPI() MockCurrencyAPI {
-	return MockCurrencyAPI{}
-}
-
 func (m MockCurrencyAPI) GetCurrencyRates(
-	_ context.Context, _ []string,
+	_ context.Context, currencies []string,
 ) (api.Response, error) {
 	if m.err != nil {
 		return api.Response{}, m.err
 	}
+
+	rates := map[string]float64{
+		"BDT": 122.251634,
+		"BHD": 0.377252,
+		"EUR": 0.869136,
+		"GBP": 0.743653,
+		"INR": 86.466554,
+		"IRR": 42125,
+		"USD": 1,
+	}
+
+	for _, currency := range currencies {
+		_, ok := rates[currency]
+		if !ok {
+			return api.Response{}, m.err
+		}
+	}
+
 	return api.Response{
-		Base: "USD",
-		Rates: map[string]float64{
-			"BDT": 122.251634,
-			"BHD": 0.377252,
-			"DKK": 6.48352,
-			"DOP": 59.202312,
-			"DZD": 130.22232,
-			"EGP": 50.458337,
-			"ERN": 15,
-			"EUR": 0.869136,
-			"ETB": 134.8,
-			"FJD": 2.24725,
-			"FKP": 0.742708,
-			"GBP": 0.743653,
-			"GEL": 2.72,
-			"GGP": 0.742708,
-			"GHS": 10.295649,
-			"GIP": 0.742708,
-			"GMD": 71.500005,
-			"GNF": 8658.789126,
-			"GTQ": 7.677452,
-			"GYD": 209.058301,
-			"IMP": 0.742708,
-			"IQD": 1309.719481,
-			"INR": 86.466554,
-			"IRR": 42125,
-			"UAH": 41.534469,
-			"UGX": 3593.775173,
-			"USD": 1,
-			"UYU": 40.984695,
-		},
+		Base:  "USD",
+		Rates: rates,
+		//Rates: map[string]float64{
+		//	"BDT": 122.251634,
+		//	"BHD": 0.377252,
+		//	"DKK": 6.48352,
+		//	"DOP": 59.202312,
+		//	"DZD": 130.22232,
+		//	"EGP": 50.458337,
+		//	"ERN": 15,
+		//	"EUR": 0.869136,
+		//	"ETB": 134.8,
+		//	"FJD": 2.24725,
+		//	"FKP": 0.742708,
+		//	"GBP": 0.743653,
+		//	"GEL": 2.72,
+		//	"GGP": 0.742708,
+		//	"GHS": 10.295649,
+		//	"GIP": 0.742708,
+		//	"GMD": 71.500005,
+		//	"GNF": 8658.789126,
+		//	"GTQ": 7.677452,
+		//	"GYD": 209.058301,
+		//	"IMP": 0.742708,
+		//	"IQD": 1309.719481,
+		//	"INR": 86.466554,
+		//	"IRR": 42125,
+		//	"UAH": 41.534469,
+		//	"UGX": 3593.775173,
+		//	"USD": 1,
+		//	"UYU": 40.984695,
+		//},
 		Timestamp: 1750240800,
 	}, nil
 }
@@ -171,7 +190,7 @@ func TestHandler_Handle(t *testing.T) {
 		{
 			name: "test param USD,GBP, status ok",
 			fields: fields{
-				currencyRateAPI: NewMockCurrencyAPI(),
+				currencyRateAPI: NewMockAPISuccess(),
 			},
 			url:        "/rates?currencies=USD,GBP",
 			wantStatus: http.StatusOK,
@@ -188,7 +207,7 @@ func TestHandler_Handle(t *testing.T) {
 		{
 			name: "calculate for USD, GBP, EUR, status ok",
 			fields: fields{
-				currencyRateAPI: NewMockCurrencyAPI(),
+				currencyRateAPI: NewMockAPISuccess(),
 			},
 			url:        "/rates?currencies=USD,GBP,EUR",
 			wantStatus: http.StatusOK,
@@ -216,7 +235,7 @@ func TestHandler_Handle(t *testing.T) {
 		{
 			name: "calculate for USD, BDT, BHD, INR",
 			fields: fields{
-				currencyRateAPI: NewMockCurrencyAPI(),
+				currencyRateAPI: NewMockAPISuccess(),
 			},
 			url:        "/rates?currencies=USD,BDT,BHD,INR",
 			wantStatus: http.StatusOK,
@@ -260,19 +279,13 @@ func TestHandler_Handle(t *testing.T) {
 			},
 		},
 		{
-			name: "test param USD, status 400",
-			fields: fields{
-				currencyRateAPI: NewMockNotEnoughCurrenciesAPI(),
-			},
+			name:       "test param USD, status 400",
 			url:        "/rates?currencies=USD",
 			wantStatus: http.StatusBadRequest,
 			wantBody:   []map[string]interface{}{},
 		},
 		{
-			name: "test param '', status 400",
-			fields: fields{
-				currencyRateAPI: NewMockEmptyParamCurrencyAPI(),
-			},
+			name:       "test param '', status 400",
 			url:        "/rates?currencies=",
 			wantStatus: http.StatusBadRequest,
 			wantBody:   []map[string]interface{}{},
@@ -280,7 +293,7 @@ func TestHandler_Handle(t *testing.T) {
 		{
 			name: "test api failure, status 400",
 			fields: fields{
-				currencyRateAPI: NewMockApiRespErrCurrencyAPI(),
+				currencyRateAPI: NewMockAPIFailureResp(),
 			},
 			url:        "/rates?currencies=BTC,USD",
 			wantStatus: http.StatusBadRequest,
@@ -289,22 +302,42 @@ func TestHandler_Handle(t *testing.T) {
 		{
 			name: "calculate for non existing currencies",
 			fields: fields{
-				currencyRateAPI: NewMockCurrencyAPI(),
+				currencyRateAPI: NewMockAPISuccess(),
 			},
 			url:        "/rates?currencies=AAA,BBB",
 			wantStatus: http.StatusNotFound,
 			wantBody:   []map[string]interface{}{},
-			wantErr:    errs.ErrCurrencyNotFound.Error(),
+			wantErr:    "error unknown currency",
 		},
 		{
 			name: "not all currencies exists in rates",
 			fields: fields{
-				currencyRateAPI: NewMockCurrencyAPI(),
+				currencyRateAPI: NewMockAPISuccess(),
 			},
 			url:        "/rates?currencies=GBP,AWG",
 			wantStatus: http.StatusNotFound,
 			wantBody:   []map[string]interface{}{},
-			wantErr:    errs.ErrCurrencyNotFound.Error(),
+			wantErr:    "error unknown currency",
+		},
+		{
+			name: "internal error from api module",
+			fields: fields{
+				currencyRateAPI: NewMockAPIInternalErr(),
+			},
+			url:        "/rates?currencies=GBP,BTC",
+			wantStatus: http.StatusInternalServerError,
+			wantBody:   []map[string]interface{}{},
+			wantErr:    "random error",
+		},
+		{
+			name: "not found error from api module",
+			fields: fields{
+				currencyRateAPI: NewMockAPICurrencyNotFound(),
+			},
+			url:        "/rates?currencies=GBP,AAA",
+			wantStatus: http.StatusNotFound,
+			wantBody:   []map[string]interface{}{},
+			wantErr:    "error unknown currency",
 		},
 	}
 
@@ -324,7 +357,7 @@ func TestHandler_Handle(t *testing.T) {
 				t.Errorf("handler returned wrong status code: got %d want %d", recorder.Code, tt.wantStatus)
 			}
 
-			if tt.wantBody == nil {
+			if tt.wantErr != "" {
 				var response map[string]string
 				if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 					t.Fatalf("invalid error response: %v", err)
@@ -333,7 +366,7 @@ func TestHandler_Handle(t *testing.T) {
 				if response["error"] != tt.wantErr {
 					t.Errorf("handler returned unexpected error: got %q want %q", response["error"], tt.wantErr)
 				}
-
+			} else if tt.wantBody != nil {
 				var gotBody []map[string]interface{}
 				if err := json.Unmarshal(recorder.Body.Bytes(), &gotBody); err != nil {
 					t.Fatalf("handler returned wrong body: %v", err)
@@ -384,4 +417,56 @@ func sortSlice(slice []map[string]interface{}) {
 
 		return valI < valJ
 	})
+}
+
+func Test_calculateCurrencyRates(t *testing.T) {
+	type args struct {
+		rates                map[string]float64
+		currencyCombinations [][]string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []map[string]interface{}
+		wantErr bool
+	}{
+		{
+			name: "not enough currencies in combination",
+			args: args{
+				currencyCombinations: [][]string{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "too many currencies in combination",
+			args: args{
+				currencyCombinations: [][]string{
+					[]string{"GBP", "USD", "BTC"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "not enough currencies in combination",
+			args: args{
+				currencyCombinations: [][]string{
+					[]string{"BTC"},
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := calculateCurrencyRates(tt.args.rates, tt.args.currencyCombinations)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("calculateCurrencyRates() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("calculateCurrencyRates() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
