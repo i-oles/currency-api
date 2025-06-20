@@ -51,7 +51,7 @@ func main() {
 
 	openExchangeAPI := openExchange.New(cfg.APIURL, appID)
 
-	ratesHandler := rates.NewHandler(openExchangeAPI)
+	ratesHandler := rates.NewHandler(openExchangeAPI, errorHandler)
 	api.GET("/rates", ratesHandler.Handle)
 
 	currencyRateRepo := memory.NewCurrencyRateRepo()

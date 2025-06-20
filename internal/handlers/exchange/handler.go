@@ -11,8 +11,8 @@ import (
 )
 
 type Handler struct {
-	CurrencyRateRepo repository.CurrencyRate
-	ErrorHandler     errs.ErrorHandler
+	currencyRateRepo repository.CurrencyRate
+	errorHandler     errs.ErrorHandler
 }
 
 func NewHandler(
@@ -20,8 +20,8 @@ func NewHandler(
 	errorHandler errs.ErrorHandler,
 ) *Handler {
 	return &Handler{
-		CurrencyRateRepo: currencyRateRepo,
-		ErrorHandler:     errorHandler,
+		currencyRateRepo: currencyRateRepo,
+		errorHandler:     errorHandler,
 	}
 }
 
@@ -40,7 +40,7 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	result, err := h.exchange(sourceCurrency, targetCurrency, amountStr)
 	if err != nil {
-		h.ErrorHandler.Handle(c, err)
+		h.errorHandler.Handle(c, err)
 
 		return
 	}
@@ -66,12 +66,12 @@ func (h *Handler) exchange(
 		return "", errs.ErrBadRequest
 	}
 
-	sourceCurrencyDetails, err := h.CurrencyRateRepo.Get(sourceCurrency)
+	sourceCurrencyDetails, err := h.currencyRateRepo.Get(sourceCurrency)
 	if err != nil {
 		return "", err
 	}
 
-	targetCurrencyDetails, err := h.CurrencyRateRepo.Get(targetCurrency)
+	targetCurrencyDetails, err := h.currencyRateRepo.Get(targetCurrency)
 	if err != nil {
 		return "", err
 	}

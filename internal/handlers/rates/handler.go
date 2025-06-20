@@ -15,11 +15,16 @@ import (
 
 type Handler struct {
 	currencyRateAPI api.CurrencyRate
+	errorHandler    errs.ErrorHandler
 }
 
-func NewHandler(currencyRateAPI api.CurrencyRate) *Handler {
+func NewHandler(
+	currencyRateAPI api.CurrencyRate,
+	errorHandler errs.ErrorHandler,
+) *Handler {
 	return &Handler{
 		currencyRateAPI: currencyRateAPI,
+		errorHandler:    errorHandler,
 	}
 }
 
@@ -51,7 +56,7 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	resp, err := h.currencyRateAPI.GetCurrencyRates(apiCtx, currencies)
 	if err != nil {
-		h.handleCurrencyRateError(c, err)
+		h.errorHandler.Handle(c, err)
 
 		return
 	}
@@ -65,7 +70,7 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
 	if err != nil {
-		h.handleCurrencyRateError(c, err)
+		h.errorHandler.Handle(c, err)
 
 		return
 	}
@@ -134,25 +139,4 @@ func roundFloat(val float64, places int) float64 {
 	factor := math.Pow(10, float64(places))
 
 	return math.Round(val*factor) / factor
-}
-
-func (h *Handler) handleCurrencyRateError(c *gin.Context, err error) {
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		h.sendErrorResponse(c, http.StatusGatewayTimeout, "currency rate API timeout")
-	case errors.Is(err, errs.ErrAPIResponse):
-		h.sendErrorResponse(c, errs.StatusCode400, "")
-	case errors.Is(err, errs.ErrCurrencyNotFound):
-		h.sendErrorResponse(c, http.StatusNotFound, errs.ErrCurrencyNotFound.Error())
-	default:
-		h.sendErrorResponse(c, http.StatusInternalServerError, err.Error())
-	}
-}
-
-func (h *Handler) sendErrorResponse(c *gin.Context, status int, message string) {
-	if message == "" {
-		c.JSON(status, nil)
-	} else {
-		c.JSON(status, gin.H{"error": message})
-	}
 }
