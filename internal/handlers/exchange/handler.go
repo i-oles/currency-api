@@ -39,6 +39,12 @@ func (h *Handler) Handle(c *gin.Context) {
 	targetCurrency := c.Query("to")
 	amountStr := c.Query("amount")
 
+	if sourceCurrency == "" || targetCurrency == "" || amountStr == "" {
+		c.AbortWithStatus(http.StatusBadRequest)
+
+		return
+	}
+
 	result, err := h.exchange(sourceCurrency, targetCurrency, amountStr)
 	if err != nil {
 		h.errorHandler.Handle(c, err)
@@ -63,9 +69,6 @@ func (h *Handler) Handle(c *gin.Context) {
 func (h *Handler) exchange(
 	sourceCurrency, targetCurrency, amountStr string,
 ) (string, error) {
-	if sourceCurrency == "" || targetCurrency == "" || amountStr == "" {
-		return "", errs.ErrBadRequest
-	}
 
 	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {

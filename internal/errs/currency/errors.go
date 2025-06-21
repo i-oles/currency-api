@@ -20,11 +20,11 @@ func (e *ErrorHandler) Handle(c *gin.Context, err error) {
 	case errors.Is(err, context.DeadlineExceeded):
 		e.sendErrorResponse(c, http.StatusGatewayTimeout, "currency rate API timeout")
 	case errors.Is(err, errs.ErrAPIResponse):
-		e.sendErrorResponse(c, errs.StatusCode400, "")
+		e.sendErrorResponse(c, http.StatusBadRequest, "")
 	case errors.Is(err, errs.ErrCurrencyNotFound):
 		e.sendErrorResponse(c, http.StatusNotFound, errs.ErrCurrencyNotFound.Error())
 	case errors.Is(err, errs.ErrRepoCurrencyNotFound):
-		e.sendErrorResponse(c, http.StatusBadRequest, errs.ErrRepoCurrencyNotFound.Error())
+		e.sendErrorResponse(c, http.StatusNotFound, errs.ErrRepoCurrencyNotFound.Error())
 	case errors.Is(err, errs.ErrBadRequest):
 		e.sendErrorResponse(c, http.StatusBadRequest, "")
 	default:
@@ -34,7 +34,7 @@ func (e *ErrorHandler) Handle(c *gin.Context, err error) {
 
 func (e *ErrorHandler) sendErrorResponse(c *gin.Context, status int, message string) {
 	if message == "" {
-		c.JSON(status, nil)
+		c.AbortWithStatus(status)
 	} else {
 		c.JSON(status, gin.H{"error": message})
 	}

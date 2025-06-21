@@ -87,6 +87,37 @@ func Test_getAllCombinations(t *testing.T) {
 	}
 }
 
+type MockErrorHandler struct{}
+
+func NewMockErrorHandler() *MockErrorHandler {
+	return &MockErrorHandler{}
+}
+
+func (m *MockErrorHandler) Handle(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		m.sendErrorResponse(c, http.StatusGatewayTimeout, "currency rate API timeout")
+	case errors.Is(err, errs.ErrAPIResponse):
+		m.sendErrorResponse(c, http.StatusBadRequest, "")
+	case errors.Is(err, errs.ErrCurrencyNotFound):
+		m.sendErrorResponse(c, http.StatusNotFound, errs.ErrCurrencyNotFound.Error())
+	case errors.Is(err, errs.ErrRepoCurrencyNotFound):
+		m.sendErrorResponse(c, http.StatusNotFound, errs.ErrRepoCurrencyNotFound.Error())
+	case errors.Is(err, errs.ErrBadRequest):
+		m.sendErrorResponse(c, http.StatusBadRequest, "")
+	default:
+		m.sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+	}
+}
+
+func (m *MockErrorHandler) sendErrorResponse(c *gin.Context, status int, message string) {
+	if message == "" {
+		c.AbortWithStatus(status)
+	} else {
+		c.JSON(status, gin.H{"error": message})
+	}
+}
+
 type MockCurrencyAPI struct {
 	err error
 }
@@ -145,25 +176,21 @@ func (m MockCurrencyAPI) GetCurrencyRates(
 }
 
 func TestHandler_Handle(t *testing.T) {
-	type fields struct {
-		currencyRateAPI api.CurrencyRate
-	}
-
 	tests := []struct {
-		name       string
-		fields     fields
-		url        string
-		wantStatus int
-		wantErr    string
-		wantBody   []map[string]interface{}
+		name            string
+		currencyRateAPI api.CurrencyRate
+		errorHandler    errs.ErrorHandler
+		url             string
+		wantStatus      int
+		wantErr         string
+		wantBody        []map[string]interface{}
 	}{
 		{
-			name: "test param USD,GBP, status ok",
-			fields: fields{
-				currencyRateAPI: NewMockAPISuccess(),
-			},
-			url:        "/rates?currencies=USD,GBP",
-			wantStatus: http.StatusOK,
+			name:            "test param USD,GBP, status ok",
+			currencyRateAPI: NewMockAPISuccess(),
+			errorHandler:    NewMockErrorHandler(),
+			url:             "/rates?currencies=USD,GBP",
+			wantStatus:      http.StatusOK,
 			wantBody: []map[string]interface{}{
 				{
 					"from": "GBP", "to": "USD", "rate": 1.344713,
@@ -175,12 +202,11 @@ func TestHandler_Handle(t *testing.T) {
 			wantErr: "",
 		},
 		{
-			name: "calculate for USD, GBP, EUR, status ok",
-			fields: fields{
-				currencyRateAPI: NewMockAPISuccess(),
-			},
-			url:        "/rates?currencies=USD,GBP,EUR",
-			wantStatus: http.StatusOK,
+			name:            "calculate for USD, GBP, EUR, status ok",
+			currencyRateAPI: NewMockAPISuccess(),
+			errorHandler:    NewMockErrorHandler(),
+			url:             "/rates?currencies=USD,GBP,EUR",
+			wantStatus:      http.StatusOK,
 			wantBody: []map[string]interface{}{
 				{
 					"from": "USD", "to": "EUR", "rate": 0.869136,
@@ -203,12 +229,11 @@ func TestHandler_Handle(t *testing.T) {
 			},
 		},
 		{
-			name: "calculate for USD, BDT, BHD, INR",
-			fields: fields{
-				currencyRateAPI: NewMockAPISuccess(),
-			},
-			url:        "/rates?currencies=USD,BDT,BHD,INR",
-			wantStatus: http.StatusOK,
+			name:            "calculate for USD, BDT, BHD, INR",
+			currencyRateAPI: NewMockAPISuccess(),
+			errorHandler:    NewMockErrorHandler(),
+			url:             "/rates?currencies=USD,BDT,BHD,INR",
+			wantStatus:      http.StatusOK,
 			wantBody: []map[string]interface{}{
 				{
 					"from": "USD", "to": "BDT", "rate": 122.251634,
@@ -249,65 +274,59 @@ func TestHandler_Handle(t *testing.T) {
 			},
 		},
 		{
-			name:       "test param USD, status 400",
-			url:        "/rates?currencies=USD",
-			wantStatus: http.StatusBadRequest,
-			wantBody:   []map[string]interface{}{},
+			name:         "test param USD, status 400",
+			url:          "/rates?currencies=USD",
+			errorHandler: NewMockErrorHandler(),
+			wantStatus:   http.StatusBadRequest,
 		},
 		{
-			name:       "test param '', status 400",
-			url:        "/rates?currencies=",
-			wantStatus: http.StatusBadRequest,
-			wantBody:   []map[string]interface{}{},
+			name:         "test param '', status 400",
+			url:          "/rates?currencies=",
+			errorHandler: NewMockErrorHandler(),
+			wantStatus:   http.StatusBadRequest,
 		},
 		{
-			name: "test api failure, status 400",
-			fields: fields{
-				currencyRateAPI: NewMockAPIFailureResp(),
-			},
-			url:        "/rates?currencies=BTC,USD",
-			wantStatus: http.StatusBadRequest,
-			wantBody:   []map[string]interface{}{},
+			name:            "test api failure, status 400",
+			currencyRateAPI: NewMockAPIFailureResp(),
+			errorHandler:    NewMockErrorHandler(),
+			url:             "/rates?currencies=BTC,USD",
+			wantStatus:      http.StatusBadRequest,
 		},
 		{
-			name: "calculate for non existing currencies",
-			fields: fields{
-				currencyRateAPI: NewMockAPISuccess(),
-			},
-			url:        "/rates?currencies=AAA,BBB",
-			wantStatus: http.StatusNotFound,
-			wantBody:   []map[string]interface{}{},
-			wantErr:    "error unknown currency",
+			name:            "calculate for non existing currencies",
+			currencyRateAPI: NewMockAPISuccess(),
+			errorHandler:    NewMockErrorHandler(),
+			url:             "/rates?currencies=AAA,BBB",
+			wantStatus:      http.StatusNotFound,
+			wantBody:        []map[string]interface{}{},
+			wantErr:         "error unknown currency",
 		},
 		{
-			name: "not all currencies exists in rates",
-			fields: fields{
-				currencyRateAPI: NewMockAPISuccess(),
-			},
-			url:        "/rates?currencies=GBP,AWG",
-			wantStatus: http.StatusNotFound,
-			wantBody:   []map[string]interface{}{},
-			wantErr:    "error unknown currency",
+			name:            "not all currencies exists in rates",
+			currencyRateAPI: NewMockAPISuccess(),
+			errorHandler:    NewMockErrorHandler(),
+			url:             "/rates?currencies=GBP,AWG",
+			wantStatus:      http.StatusNotFound,
+			wantBody:        []map[string]interface{}{},
+			wantErr:         "error unknown currency",
 		},
 		{
-			name: "internal error from api module",
-			fields: fields{
-				currencyRateAPI: NewMockAPIInternalErr(),
-			},
-			url:        "/rates?currencies=GBP,BTC",
-			wantStatus: http.StatusInternalServerError,
-			wantBody:   []map[string]interface{}{},
-			wantErr:    "random error",
+			name:            "internal error from api module",
+			currencyRateAPI: NewMockAPIInternalErr(),
+			errorHandler:    NewMockErrorHandler(),
+			url:             "/rates?currencies=GBP,BTC",
+			wantStatus:      http.StatusInternalServerError,
+			wantBody:        []map[string]interface{}{},
+			wantErr:         "random error",
 		},
 		{
-			name: "not found error from api module",
-			fields: fields{
-				currencyRateAPI: NewMockAPICurrencyNotFound(),
-			},
-			url:        "/rates?currencies=GBP,AAA",
-			wantStatus: http.StatusNotFound,
-			wantBody:   []map[string]interface{}{},
-			wantErr:    "error unknown currency",
+			name:            "not found error from api module",
+			currencyRateAPI: NewMockAPICurrencyNotFound(),
+			errorHandler:    NewMockErrorHandler(),
+			url:             "/rates?currencies=GBP,AAA",
+			wantStatus:      http.StatusNotFound,
+			wantBody:        []map[string]interface{}{},
+			wantErr:         "error unknown currency",
 		},
 	}
 
@@ -320,7 +339,7 @@ func TestHandler_Handle(t *testing.T) {
 			c.Request = httptest.NewRequestWithContext(
 				context.Background(), "GET", tt.url, nil)
 
-			handler := NewHandler(tt.fields.currencyRateAPI)
+			handler := NewHandler(tt.currencyRateAPI, tt.errorHandler)
 			handler.Handle(c)
 
 			if recorder.Code != tt.wantStatus {
@@ -360,8 +379,22 @@ func mapsEqual(got, want map[string]interface{}) bool {
 		return false
 	}
 
-	gotRate := got["rate"].(float64)
-	wantRate := want["rate"].(float64)
+	gotAny, ok := got["rate"]
+	if !ok {
+		return false
+	}
+
+	wantAny, ok := want["rate"]
+	if !ok {
+		return false
+	}
+
+	gotRate, okGot := gotAny.(float64)
+	wantRate, okWant := wantAny.(float64)
+
+	if !okGot || !okWant {
+		return false
+	}
 
 	return math.Abs(gotRate-wantRate) < epsilon
 }
@@ -382,10 +415,30 @@ func slicesEqual(got, want []map[string]interface{}) bool {
 
 func sortSlice(slice []map[string]interface{}) {
 	sort.Slice(slice, func(i, j int) bool {
-		valI := slice[i]["rate"].(float64)
-		valJ := slice[j]["rate"].(float64)
+		mapI, mapJ := slice[i], slice[j]
 
-		return valI < valJ
+		if mapI == nil || mapJ == nil {
+			return false
+		}
+
+		valI, okI := mapI["rate"]
+		if !okI {
+			return false
+		}
+
+		valJ, okJ := mapJ["rate"]
+		if !okJ {
+			return false
+		}
+
+		valIFloat, okI := valI.(float64)
+		valJFloat, okJ := valJ.(float64)
+
+		if !okI || !okJ {
+			return false
+		}
+
+		return valIFloat < valJFloat
 	})
 }
 

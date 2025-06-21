@@ -3,12 +3,12 @@ package rates
 import (
 	"context"
 	"errors"
+	"fmt"
 	"main/internal/api"
 	"main/internal/errs"
 	"math"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -39,36 +39,12 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	param := c.Query("currencies")
 	if param == "" {
-		c.JSON(http.StatusBadRequest, nil)
+		c.AbortWithStatus(http.StatusBadRequest)
 
 		return
 	}
 
-	currencies := strings.Split(param, ",")
-	if len(currencies) < 2 {
-		c.JSON(http.StatusBadRequest, nil)
-
-		return
-	}
-
-	apiCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-
-	resp, err := h.currencyRateAPI.GetCurrencyRates(apiCtx, currencies)
-	if err != nil {
-		h.errorHandler.Handle(c, err)
-
-		return
-	}
-
-	currencyCombinations, err := getAllCombinations(currencies)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-
-		return
-	}
-
-	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
+	result, err := h.countRates(ctx, param)
 	if err != nil {
 		h.errorHandler.Handle(c, err)
 
@@ -76,6 +52,30 @@ func (h *Handler) Handle(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *Handler) countRates(ctx context.Context, param string) ([]map[string]interface{}, error) {
+	currencies := strings.Split(param, ",")
+	if len(currencies) < 2 {
+		return nil, errs.ErrBadRequest
+	}
+
+	resp, err := h.currencyRateAPI.GetCurrencyRates(ctx, currencies)
+	if err != nil {
+		return nil, err
+	}
+
+	currencyCombinations, err := getAllCombinations(currencies)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get combinations: %w", err)
+	}
+
+	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func getAllCombinations(input []string) ([][]string, error) {
@@ -112,23 +112,23 @@ func calculateCurrencyRates(
 			return nil, errors.New("one combination should contain exactly two values")
 		}
 
-		currency1 := combination[0]
-		currency2 := combination[1]
+		sourceCurrency := combination[0]
+		targetCurrency := combination[1]
 
-		rate1, ok := rates[currency1]
+		sourceRate, ok := rates[sourceCurrency]
 		if !ok {
 			return nil, errs.ErrCurrencyNotFound
 		}
 
-		rate2, ok := rates[currency2]
+		targetRate, ok := rates[targetCurrency]
 		if !ok {
 			return nil, errs.ErrCurrencyNotFound
 		}
 
 		result = append(result, map[string]interface{}{
-			"from": currency1,
-			"to":   currency2,
-			"rate": roundFloat(rate2/rate1, 6),
+			"from": sourceCurrency,
+			"to":   targetCurrency,
+			"rate": roundFloat(targetRate/sourceRate, 6),
 		})
 	}
 
