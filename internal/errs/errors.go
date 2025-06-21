@@ -16,6 +16,9 @@ var (
 	ErrRepoCurrencyNotFound = errors.New("error repo currency not found error")
 	ErrCurrencyNotFound     = errors.New("error unknown currency")
 	ErrBadRequest           = errors.New("error invalid request")
+	ErrNegativeAmount       = errors.New("error amount must be positive number")
+	ErrEmptyParam           = errors.New("error one or more params is empty")
+	ErrAmountNotNumber      = errors.New("error amount must a number")
 )
 
 type ErrorHandler interface {

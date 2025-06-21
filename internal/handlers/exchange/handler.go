@@ -39,12 +39,6 @@ func (h *Handler) Handle(c *gin.Context) {
 	targetCurrency := c.Query("to")
 	amountStr := c.Query("amount")
 
-	if sourceCurrency == "" || targetCurrency == "" || amountStr == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
-
-		return
-	}
-
 	result, err := h.exchange(sourceCurrency, targetCurrency, amountStr)
 	if err != nil {
 		h.errorHandler.Handle(c, err)
@@ -52,31 +46,30 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("result string: %+v\n", result)
-
-	jsonData := fmt.Sprintf(
-		`{"from":"%s","to":"%s","amount":%s}`,
-		sourceCurrency,
-		targetCurrency,
-		result,
-	)
-
-	fmt.Println(jsonData)
-
-	c.Data(http.StatusOK, "application/json", []byte(jsonData))
+	c.Data(http.StatusOK, "application/json",
+		[]byte(
+			fmt.Sprintf(`{ "from": "%s", "to": "%s", "amount": %s }`,
+				sourceCurrency,
+				targetCurrency,
+				result,
+			),
+		))
 }
 
 func (h *Handler) exchange(
 	sourceCurrency, targetCurrency, amountStr string,
 ) (string, error) {
+	if sourceCurrency == "" || targetCurrency == "" || amountStr == "" {
+		return "", errs.ErrEmptyParam
+	}
 
 	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {
-		return "", errs.ErrBadRequest
+		return "", errs.ErrAmountNotNumber
 	}
 
 	if amount.LessThan(decimal.NewFromFloat(0)) {
-		return "", errs.ErrBadRequest
+		return "", errs.ErrNegativeAmount
 	}
 
 	sourceCurrencyDetails, err := h.currencyRateRepo.Get(sourceCurrency)
