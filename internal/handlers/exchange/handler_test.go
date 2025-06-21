@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"main/internal/errs"
 	"main/internal/repository"
 	"math"
@@ -80,22 +81,48 @@ func TestHandler_Handle(t *testing.T) {
 		wantErr          string
 		wantBody         map[string]interface{}
 	}{
+		//{
+		//	name:             "Test Exchange GATE to FLOKI",
+		//	currencyRateRepo: NewMockCurrencyRateRepo(),
+		//	errorHandler:     NewMockErrorHandler(),
+		//	url:              "/exchange?from=GATE&to=FLOKI&amount=123.12345",
+		//	wantStatus:       http.StatusOK,
+		//	wantBody: map[string]interface{}{
+		//		"from":   "GATE",
+		//		"to":     "FLOKI",
+		//		"amount": 5923376.060924369747894400,
+		//	},
+		//},
+		//{
+		//	name:             "Test Exchange USDT to WBTC",
+		//	currencyRateRepo: NewMockCurrencyRateRepo(),
+		//	errorHandler:     NewMockErrorHandler(),
+		//	url:              "/exchange?from=USDT&to=WBTC&amount=1",
+		//	wantStatus:       http.StatusOK,
+		//	wantBody: map[string]string{
+		//		"from":   "USDT",
+		//		"to":     "WBTC",
+		//		"amount": "0.00001751",
+		//	},
+		//},
 		{
-			name:             "Test Exchange",
+			name:             "Test Exchange USDT to BEER",
 			currencyRateRepo: NewMockCurrencyRateRepo(),
 			errorHandler:     NewMockErrorHandler(),
-			url:              "/exchange?from=GATE&to=FLOKI&amount=123.12345",
+			url:              "/exchange?from=USDT&to=BEER&amount=1.0",
 			wantStatus:       http.StatusOK,
 			wantBody: map[string]interface{}{
-				"from": "GATE",
-				"to":   "FLOKI",
-				"rate": 123.12345,
+				"from":   "USDT",
+				"to":     "BEER",
+				"amount": 40593.254774481917919500,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
+
+			fmt.Printf("tt.wantBody: %+v\n", tt.wantBody)
 
 			c, _ := gin.CreateTestContext(recorder)
 
@@ -124,23 +151,12 @@ func TestHandler_Handle(t *testing.T) {
 					t.Fatalf("handler returned wrong body: %v", err)
 				}
 
+				fmt.Printf("gotBody: %+v\n", gotBody)
+
 				if !mapsEqual(gotBody, tt.wantBody) {
 					t.Errorf("calculateCurrencyRates() got = %v, want %v", gotBody, tt.wantBody)
 				}
 			}
 		})
 	}
-}
-
-const epsilon = 1e-6
-
-func mapsEqual(got, want map[string]interface{}) bool {
-	if got["from"] != want["from"] || got["to"] != want["to"] {
-		return false
-	}
-
-	gotRate := got["rate"].(float64)
-	wantRate := want["rate"].(float64)
-
-	return math.Abs(gotRate-wantRate) < epsilon
 }

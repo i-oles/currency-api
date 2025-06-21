@@ -2,6 +2,7 @@ package exchange
 
 import (
 	"errors"
+	"fmt"
 	"main/internal/errs"
 	"main/internal/repository"
 	"net/http"
@@ -45,9 +46,18 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK,
-		gin.H{"from": sourceCurrency, "to": targetCurrency, "amount": result},
+	fmt.Printf("result string: %+v\n", result)
+
+	jsonData := fmt.Sprintf(
+		`{"from":"%s","to":"%s","amount":%s}`,
+		sourceCurrency,
+		targetCurrency,
+		result,
 	)
+
+	fmt.Println(jsonData)
+
+	c.Data(http.StatusOK, "application/json", []byte(jsonData))
 }
 
 func (h *Handler) exchange(
