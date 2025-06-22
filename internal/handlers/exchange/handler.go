@@ -1,8 +1,8 @@
 package exchange
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
 	"main/internal/errs"
 	"main/internal/repository"
 	"net/http"
@@ -10,6 +10,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
 )
+
+type Response struct {
+	From   string      `json:"from"`
+	To     string      `json:"to"`
+	Amount json.Number `json:"amount"`
+}
 
 type Handler struct {
 	currencyRateRepo repository.CurrencyRate
@@ -35,55 +41,46 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	sourceCurrency := c.Query("from")
-	targetCurrency := c.Query("to")
-	amountStr := c.Query("amount")
-
-	result, err := h.exchange(sourceCurrency, targetCurrency, amountStr)
+	resp, err := h.exchange(c)
 	if err != nil {
 		h.errorHandler.Handle(c, err)
 
 		return
 	}
 
-	c.Data(http.StatusOK, "application/json",
-		[]byte(
-			fmt.Sprintf(`{ "from": "%s", "to": "%s", "amount": %s }`,
-				sourceCurrency,
-				targetCurrency,
-				result,
-			),
-		))
+	c.JSON(http.StatusOK, resp)
 }
 
-func (h *Handler) exchange(
-	sourceCurrency, targetCurrency, amountStr string,
-) (string, error) {
+func (h *Handler) exchange(c *gin.Context) (Response, error) {
+	sourceCurrency := c.Query("from")
+	targetCurrency := c.Query("to")
+	amountStr := c.Query("amount")
+
 	if sourceCurrency == "" || targetCurrency == "" || amountStr == "" {
-		return "", errs.ErrEmptyParam
+		return Response{}, errs.ErrEmptyParam
 	}
 
 	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {
-		return "", errs.ErrAmountNotNumber
+		return Response{}, errs.ErrAmountNotNumber
 	}
 
 	if amount.LessThan(decimal.NewFromFloat(0)) {
-		return "", errs.ErrNegativeAmount
+		return Response{}, errs.ErrNegativeAmount
 	}
 
 	sourceCurrencyDetails, err := h.currencyRateRepo.Get(sourceCurrency)
 	if err != nil {
-		return "", err
+		return Response{}, err
 	}
 
 	targetCurrencyDetails, err := h.currencyRateRepo.Get(targetCurrency)
 	if err != nil {
-		return "", err
+		return Response{}, err
 	}
 
 	if len(sourceCurrencyDetails) != 2 && len(targetCurrencyDetails) != 2 {
-		return "", errors.New("len of currency details is invalid")
+		return Response{}, errors.New("len of currency details is invalid")
 	}
 
 	sourceRate := decimal.NewFromFloat(sourceCurrencyDetails[1])
@@ -95,5 +92,9 @@ func (h *Handler) exchange(
 
 	decimalPlaces := int32(targetCurrencyDetails[0])
 
-	return result.StringFixed(decimalPlaces), nil
+	return Response{
+		From:   sourceCurrency,
+		To:     targetCurrency,
+		Amount: json.Number(result.StringFixed(decimalPlaces)),
+	}, nil
 }

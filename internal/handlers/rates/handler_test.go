@@ -6,11 +6,9 @@ import (
 	"errors"
 	"main/internal/api"
 	"main/internal/errs"
-	"math"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
-	"sort"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -97,13 +95,11 @@ func (m *MockErrorHandler) Handle(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
 		m.sendErrorResponse(c, http.StatusGatewayTimeout, "currency rate API timeout")
-	case errors.Is(err, errs.ErrAPIResponse):
-		m.sendErrorResponse(c, http.StatusBadRequest, "")
 	case errors.Is(err, errs.ErrCurrencyNotFound):
 		m.sendErrorResponse(c, http.StatusNotFound, errs.ErrCurrencyNotFound.Error())
-	case errors.Is(err, errs.ErrRepoCurrencyNotFound):
-		m.sendErrorResponse(c, http.StatusNotFound, errs.ErrRepoCurrencyNotFound.Error())
-	case errors.Is(err, errs.ErrBadRequest):
+	case errors.Is(err, errs.ErrAPIResponse),
+		errors.Is(err, errs.ErrEmptyParam),
+		errors.Is(err, errs.ErrBadRequest):
 		m.sendErrorResponse(c, http.StatusBadRequest, "")
 	default:
 		m.sendErrorResponse(c, http.StatusInternalServerError, err.Error())
@@ -183,7 +179,7 @@ func TestHandler_Handle(t *testing.T) {
 		url             string
 		wantStatus      int
 		wantErr         string
-		wantBody        []map[string]interface{}
+		wantBody        []byte
 	}{
 		{
 			name:            "test param USD,GBP, status ok",
@@ -191,15 +187,9 @@ func TestHandler_Handle(t *testing.T) {
 			errorHandler:    NewMockErrorHandler(),
 			url:             "/rates?currencies=USD,GBP",
 			wantStatus:      http.StatusOK,
-			wantBody: []map[string]interface{}{
-				{
-					"from": "GBP", "to": "USD", "rate": 1.344713,
-				},
-				{
-					"from": "USD", "to": "GBP", "rate": 0.743653,
-				},
-			},
-			wantErr: "",
+			wantBody: []byte(
+				`[{"from":"USD","to":"GBP","rate":0.74365300},{"from":"GBP","to":"USD","rate":1.34471319}]`,
+			),
 		},
 		{
 			name:            "calculate for USD, GBP, EUR, status ok",
@@ -207,26 +197,9 @@ func TestHandler_Handle(t *testing.T) {
 			errorHandler:    NewMockErrorHandler(),
 			url:             "/rates?currencies=USD,GBP,EUR",
 			wantStatus:      http.StatusOK,
-			wantBody: []map[string]interface{}{
-				{
-					"from": "USD", "to": "EUR", "rate": 0.869136,
-				},
-				{
-					"from": "USD", "to": "GBP", "rate": 0.743653,
-				},
-				{
-					"from": "GBP", "to": "USD", "rate": 1.344713,
-				},
-				{
-					"from": "GBP", "to": "EUR", "rate": 1.168739,
-				},
-				{
-					"from": "EUR", "to": "USD", "rate": 1.150568,
-				},
-				{
-					"from": "EUR", "to": "GBP", "rate": 0.855623,
-				},
-			},
+			wantBody: []byte(
+				`[{"from":"USD","to":"GBP","rate":0.74365300},{"from":"USD","to":"EUR","rate":0.86913600},{"from":"GBP","to":"USD","rate":1.34471319},{"from":"GBP","to":"EUR","rate":1.16873865},{"from":"EUR","to":"USD","rate":1.15056792},{"from":"EUR","to":"GBP","rate":0.85562329}]`,
+			),
 		},
 		{
 			name:            "calculate for USD, BDT, BHD, INR",
@@ -234,44 +207,8 @@ func TestHandler_Handle(t *testing.T) {
 			errorHandler:    NewMockErrorHandler(),
 			url:             "/rates?currencies=USD,BDT,BHD,INR",
 			wantStatus:      http.StatusOK,
-			wantBody: []map[string]interface{}{
-				{
-					"from": "USD", "to": "BDT", "rate": 122.251634,
-				},
-				{
-					"from": "USD", "to": "BHD", "rate": 0.377252,
-				},
-				{
-					"from": "USD", "to": "INR", "rate": 86.466554,
-				},
-				{
-					"from": "BHD", "to": "USD", "rate": 2.650748,
-				},
-				{
-					"from": "BHD", "to": "INR", "rate": 229.201049,
-				},
-				{
-					"from": "BHD", "to": "BDT", "rate": 324.058279,
-				},
-				{
-					"from": "BDT", "to": "BHD", "rate": 0.003086,
-				},
-				{
-					"from": "BDT", "to": "INR", "rate": 0.707283,
-				},
-				{
-					"from": "BDT", "to": "USD", "rate": 0.00818,
-				},
-				{
-					"from": "INR", "to": "BDT", "rate": 1.41386,
-				},
-				{
-					"from": "INR", "to": "BHD", "rate": 0.004363,
-				},
-				{
-					"from": "INR", "to": "USD", "rate": 0.011565,
-				},
-			},
+			wantBody: []byte(
+				`[{"from":"USD","to":"BDT","rate":122.25163400},{"from":"USD","to":"BHD","rate":0.37725200},{"from":"USD","to":"INR","rate":86.46655400},{"from":"BDT","to":"USD","rate":0.00817985},{"from":"BDT","to":"BHD","rate":0.00308586},{"from":"BDT","to":"INR","rate":0.70728342},{"from":"BHD","to":"USD","rate":2.65074804},{"from":"BHD","to":"BDT","rate":324.05827935},{"from":"BHD","to":"INR","rate":229.20104864},{"from":"INR","to":"USD","rate":0.01156517},{"from":"INR","to":"BDT","rate":1.41386037},{"from":"INR","to":"BHD","rate":0.00436298}]`),
 		},
 		{
 			name:         "test param USD, status 400",
@@ -298,7 +235,6 @@ func TestHandler_Handle(t *testing.T) {
 			errorHandler:    NewMockErrorHandler(),
 			url:             "/rates?currencies=AAA,BBB",
 			wantStatus:      http.StatusNotFound,
-			wantBody:        []map[string]interface{}{},
 			wantErr:         "error unknown currency",
 		},
 		{
@@ -307,7 +243,6 @@ func TestHandler_Handle(t *testing.T) {
 			errorHandler:    NewMockErrorHandler(),
 			url:             "/rates?currencies=GBP,AWG",
 			wantStatus:      http.StatusNotFound,
-			wantBody:        []map[string]interface{}{},
 			wantErr:         "error unknown currency",
 		},
 		{
@@ -316,7 +251,6 @@ func TestHandler_Handle(t *testing.T) {
 			errorHandler:    NewMockErrorHandler(),
 			url:             "/rates?currencies=GBP,BTC",
 			wantStatus:      http.StatusInternalServerError,
-			wantBody:        []map[string]interface{}{},
 			wantErr:         "random error",
 		},
 		{
@@ -325,7 +259,6 @@ func TestHandler_Handle(t *testing.T) {
 			errorHandler:    NewMockErrorHandler(),
 			url:             "/rates?currencies=GBP,AAA",
 			wantStatus:      http.StatusNotFound,
-			wantBody:        []map[string]interface{}{},
 			wantErr:         "error unknown currency",
 		},
 	}
@@ -356,126 +289,39 @@ func TestHandler_Handle(t *testing.T) {
 					t.Errorf("handler returned unexpected error: got %q want %q", response["error"], tt.wantErr)
 				}
 			} else if tt.wantBody != nil {
-				var gotBody []map[string]interface{}
-				if err := json.Unmarshal(recorder.Body.Bytes(), &gotBody); err != nil {
-					t.Fatalf("handler returned wrong body: %v", err)
-				}
-
-				sortSlice(gotBody)
-				sortSlice(tt.wantBody)
-
-				if !slicesEqual(gotBody, tt.wantBody) {
-					t.Errorf("calculateCurrencyRates() got = %v, want %v", gotBody, tt.wantBody)
+				gotBody := recorder.Body.Bytes()
+				if !reflect.DeepEqual(recorder.Body.Bytes(), tt.wantBody) {
+					t.Errorf("calculateCurrencyRates() got = %s, want %s", gotBody, tt.wantBody)
 				}
 			}
 		})
 	}
 }
 
-const epsilon = 1e-6
-
-func mapsEqual(got, want map[string]interface{}) bool {
-	if got["from"] != want["from"] || got["to"] != want["to"] {
-		return false
-	}
-
-	gotAny, ok := got["rate"]
-	if !ok {
-		return false
-	}
-
-	wantAny, ok := want["rate"]
-	if !ok {
-		return false
-	}
-
-	gotRate, okGot := gotAny.(float64)
-	wantRate, okWant := wantAny.(float64)
-
-	if !okGot || !okWant {
-		return false
-	}
-
-	return math.Abs(gotRate-wantRate) < epsilon
-}
-
-func slicesEqual(got, want []map[string]interface{}) bool {
-	if len(got) != len(want) {
-		return false
-	}
-
-	for i := range got {
-		if !mapsEqual(got[i], want[i]) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func sortSlice(slice []map[string]interface{}) {
-	sort.Slice(slice, func(i, j int) bool {
-		mapI, mapJ := slice[i], slice[j]
-
-		if mapI == nil || mapJ == nil {
-			return false
-		}
-
-		valI, okI := mapI["rate"]
-		if !okI {
-			return false
-		}
-
-		valJ, okJ := mapJ["rate"]
-		if !okJ {
-			return false
-		}
-
-		valIFloat, okI := valI.(float64)
-		valJFloat, okJ := valJ.(float64)
-
-		if !okI || !okJ {
-			return false
-		}
-
-		return valIFloat < valJFloat
-	})
-}
-
 func Test_calculateCurrencyRates(t *testing.T) {
-	type args struct {
+	tests := []struct {
+		name                 string
 		rates                map[string]float64
 		currencyCombinations [][]string
-	}
-
-	tests := []struct {
-		name    string
-		args    args
-		want    []map[string]interface{}
-		wantErr bool
+		want                 []Response
+		wantErr              bool
 	}{
 		{
-			name: "not enough currencies in combination",
-			args: args{
-				currencyCombinations: [][]string{},
-			},
-			wantErr: true,
+			name:                 "not enough currencies in combination",
+			currencyCombinations: [][]string{},
+			wantErr:              true,
 		},
 		{
 			name: "too many currencies in combination",
-			args: args{
-				currencyCombinations: [][]string{
-					[]string{"GBP", "USD", "BTC"},
-				},
+			currencyCombinations: [][]string{
+				{"GBP", "USD", "BTC"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "not enough currencies in combination",
-			args: args{
-				currencyCombinations: [][]string{
-					[]string{"BTC"},
-				},
+			currencyCombinations: [][]string{
+				{"BTC"},
 			},
 			wantErr: true,
 		},
@@ -483,7 +329,7 @@ func Test_calculateCurrencyRates(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := calculateCurrencyRates(tt.args.rates, tt.args.currencyCombinations)
+			got, err := calculateCurrencyRates(tt.rates, tt.currencyCombinations)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("calculateCurrencyRates() error = %v, wantErr %v", err, tt.wantErr)
 

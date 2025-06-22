@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"main/internal/errs"
 	"main/internal/repository"
 	"net/http"
@@ -59,10 +58,7 @@ func (m *MockErrorHandler) Handle(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
 		m.sendErrorResponse(c, http.StatusGatewayTimeout, "currency rate API timeout")
-	case errors.Is(err, errs.ErrCurrencyNotFound):
-		m.sendErrorResponse(c, http.StatusNotFound, errs.ErrCurrencyNotFound.Error())
-	case errors.Is(err, errs.ErrAPIResponse),
-		errors.Is(err, errs.ErrRepoCurrencyNotFound),
+	case errors.Is(err, errs.ErrRepoCurrencyNotFound),
 		errors.Is(err, errs.ErrNegativeAmount),
 		errors.Is(err, errs.ErrAmountNotNumber),
 		errors.Is(err, errs.ErrEmptyParam),
@@ -97,7 +93,7 @@ func TestHandler_Handle(t *testing.T) {
 			errorHandler:     NewMockErrorHandler(),
 			url:              "/exchange?from=GATE&to=FLOKI&amount=123.12345",
 			wantStatus:       http.StatusOK,
-			wantBody:         []byte(`{ "from": "GATE", "to": "FLOKI", "amount": 5923376.060924369747894400 }`),
+			wantBody:         []byte(`{"from":"GATE","to":"FLOKI","amount":5923376.060924369747894400}`),
 		},
 		{
 			name:             "Test Exchange USDT to WBTC",
@@ -105,7 +101,7 @@ func TestHandler_Handle(t *testing.T) {
 			errorHandler:     NewMockErrorHandler(),
 			url:              "/exchange?from=USDT&to=WBTC&amount=1",
 			wantStatus:       http.StatusOK,
-			wantBody:         []byte(`{ "from": "USDT", "to": "WBTC", "amount": 0.00001751 }`),
+			wantBody:         []byte(`{"from":"USDT","to":"WBTC","amount":0.00001751}`),
 		},
 		{
 			name:             "Test Exchange USDT to BEER",
@@ -113,7 +109,7 @@ func TestHandler_Handle(t *testing.T) {
 			errorHandler:     NewMockErrorHandler(),
 			url:              "/exchange?from=USDT&to=BEER&amount=1.0",
 			wantStatus:       http.StatusOK,
-			wantBody:         []byte(`{ "from": "USDT", "to": "BEER", "amount": 40593.254774481917919500 }`),
+			wantBody:         []byte(`{"from":"USDT","to":"BEER","amount":40593.254774481917919500}`),
 		},
 		{
 			name:             "Test Exchange BEER to USDT",
@@ -121,7 +117,7 @@ func TestHandler_Handle(t *testing.T) {
 			errorHandler:     NewMockErrorHandler(),
 			url:              "/exchange?from=BEER&to=USDT&amount=108.108",
 			wantStatus:       http.StatusOK,
-			wantBody:         []byte(`{ "from": "BEER", "to": "USDT", "amount": 0.002663 }`),
+			wantBody:         []byte(`{"from":"BEER","to":"USDT","amount":0.002663}`),
 		},
 		{
 			name:             "Test Exchange Error negative 'amount'",
@@ -218,15 +214,13 @@ func TestHandler_Handle(t *testing.T) {
 					t.Fatalf("invalid error response: %v", err)
 				}
 
-				fmt.Printf(recorder.Body.String())
-
 				if response["error"] != tt.wantErr {
 					t.Errorf("handler returned unexpected error: got %q want %q", response["error"], tt.wantErr)
 				}
 			} else if tt.wantBody != nil {
 				gotBody := recorder.Body.Bytes()
 				if !reflect.DeepEqual(recorder.Body.Bytes(), tt.wantBody) {
-					t.Errorf("calculateCurrencyRates() got = %s, want %s", gotBody, tt.wantBody)
+					t.Errorf("error: gotBody = %s, wantBody %s", gotBody, tt.wantBody)
 				}
 			}
 		})

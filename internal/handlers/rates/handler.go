@@ -2,16 +2,23 @@ package rates
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"main/internal/api"
 	"main/internal/errs"
-	"math"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 )
+
+type Response struct {
+	From string      `json:"from"`
+	To   string      `json:"to"`
+	Rate json.Number `json:"rate"`
+}
 
 type Handler struct {
 	currencyRateAPI api.CurrencyRate
@@ -37,24 +44,22 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	param := c.Query("currencies")
-	if param == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
-
-		return
-	}
-
-	result, err := h.countRates(ctx, param)
+	responses, err := h.countRates(c, ctx)
 	if err != nil {
 		h.errorHandler.Handle(c, err)
 
 		return
 	}
 
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, responses)
 }
 
-func (h *Handler) countRates(ctx context.Context, param string) ([]map[string]interface{}, error) {
+func (h *Handler) countRates(c *gin.Context, ctx context.Context) ([]Response, error) {
+	param := c.Query("currencies")
+	if param == "" {
+		return nil, errs.ErrEmptyParam
+	}
+
 	currencies := strings.Split(param, ",")
 	if len(currencies) < 2 {
 		return nil, errs.ErrBadRequest
@@ -70,12 +75,12 @@ func (h *Handler) countRates(ctx context.Context, param string) ([]map[string]in
 		return nil, fmt.Errorf("failed to get combinations: %w", err)
 	}
 
-	result, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
+	responses, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
 	if err != nil {
 		return nil, err
 	}
 
-	return result, nil
+	return responses, nil
 }
 
 func getAllCombinations(input []string) ([][]string, error) {
@@ -100,8 +105,8 @@ func getAllCombinations(input []string) ([][]string, error) {
 func calculateCurrencyRates(
 	rates map[string]float64,
 	currencyCombinations [][]string,
-) ([]map[string]interface{}, error) {
-	result := make([]map[string]interface{}, 0)
+) ([]Response, error) {
+	responses := make([]Response, 0, len(currencyCombinations))
 
 	if len(currencyCombinations) == 0 {
 		return nil, errors.New("no combinations given")
@@ -125,18 +130,20 @@ func calculateCurrencyRates(
 			return nil, errs.ErrCurrencyNotFound
 		}
 
-		result = append(result, map[string]interface{}{
-			"from": sourceCurrency,
-			"to":   targetCurrency,
-			"rate": roundFloat(targetRate/sourceRate, 6),
-		})
+		sourceDecimalRate := decimal.NewFromFloat(sourceRate)
+		targetDecimalRate := decimal.NewFromFloat(targetRate)
+
+		decimalRate := targetDecimalRate.Div(sourceDecimalRate)
+
+		strRate := decimalRate.StringFixed(8)
+		response := Response{
+			From: sourceCurrency,
+			To:   targetCurrency,
+			Rate: json.Number(strRate),
+		}
+
+		responses = append(responses, response)
 	}
 
-	return result, nil
-}
-
-func roundFloat(val float64, places int) float64 {
-	factor := math.Pow(10, float64(places))
-
-	return math.Round(val*factor) / factor
+	return responses, nil
 }
