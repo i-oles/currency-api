@@ -1,96 +1,94 @@
-# ZADANIE REKRUTACYJNE
+# ABOUT
 
-Na wstępie chciałbym podziękować za zainterosowanie się naszą ofertą pracy oraz poświęcony czas aby zaznajomić się z poniszym zadaniem. W przypadku braku nieścisłości lub nie zrozumienia treści zadania, prosimy o kontakt. Tymczasem przystępujemy do treści zadania.
+Proste REST API slużace do sprawdzenia kursu wymiany jednej waluty na druga, a także przeliczenie wymiany niektórych walut.
+Aplikacja pobiera kursy walut z openexchangerates.org API.
 
-## CEL OGÓLNY
-
-Celem ogólnym zadania jest stworzenie prostej aplikacji w języku GO, przy użyciu frameworka Gin-Gonic. O strukturze umożliwiający jej dalszy rozwój, przy zachowaniu dobrych praktyk programistycznych oraz języka GO.
-
-## CELE ZADANIA
-
-- [ ] Utworzenie prostej aplikacji w Go z użyciem frameworka gin-gonic.
-- [ ] Dodanie jednego (lub dwóch) endpointu HTTP (opis poniżej).
-- [ ] Dodanie testów do endpoint'u `/rates`.
-- [ ] Skonteneryzowanie aplikacji przy użyciu Dockera.
-- [ ] Wynikiem swojej pracy wyślij na utworzone repozytorium na GitHub i podziel się linkiem.
-
-## Opis endpointów
-
-### Endpoint do pobierania kursów wymiany walut - cel wymagany
-
-**Metoda HTTP:** `GET`
-
-**Endpoint**: `/rates`
-
-**Opis:**
-
-Endpoint wymaga jednego parametru `currencies`, w którym ma przyjąć listę walut (wymagane są conajmniej dwie).
-Wykorzystując API serwisu `openexchangerates.org` pobierz kursy wymiany walut dla żądanych walut, używając amerykańskiego dolara jako waluty bazowej.
-Następnie przelicz brakujące kursy walut i zwróć `status 200` zaś w ciele odpowiedzi, tablicę ze wszystkimi możliwymi parami walut oraz kursami ich wymiany.
-W przypadku braku/pustego parametru `currencies`, podaniu tylko jednej waluty, lub błędu zwróconego przez API serwisu `openexchangerates.org` zwróć sam `status 400` z pustym ciałem odpowiedzi.
-
-#### Przykład #1
-
-**Request:** `GET /rates?currencies=USD,GBP,EUR`
-
-**Response:**
-
-> Status: `200`
-
-```
-[
-  { "from": "USD", "to": "GBP", "rate": 1.0 },
-  { "from": "GBP", "to": "USD", "rate": 1.0 },
-  { "from": "USD", "to": "EUR", "rate": 1.0 },
-  { "from": "EUR", "to": "USD", "rate": 1.0 },
-  { "from": "EUR", "to": "GBP", "rate": 1.0 },
-  { "from": "GBP", "to": "EUR", "rate": 1.0 },
-]
-```
-
-#### Przykład #2
-
-**Request:** `GET /rates?currencies=GBP,EUR`
-
-**Response (JSON):**
-
-> Status: `200`
-
-```
-[
-  { "from": "EUR", "to": "GBP", "rate": 1.0 },
-  { "from": "GBP", "to": "EUR", "rate": 1.0 },
-]
-```
-
-#### Przykład #3
-
-**Request:** `GET /rates?currencies=GBP`
-
-**Response:**
-
-> Status: `400`
+---
+# DEVELOPMENT
 
 ---
 
-### Endpoint do przeliczania jednej kryptowaluty na inną - cel opcjonalny
+Aby uruchomić aplikację potrzebujemy 
 
-**Metoda HTTP:** `GET`
 
-**Endpoint:** `/exchange`
+### Endpoints
 
-**Opis:**
+**GET /rates**
+
+Returns all possible exchange rate pairs between requested currencies.  
+Endpoint wymaga jednego parametru:
+
+- `currencies` - waluty których kurs wymiany nas interesuje.
+
+Wynik jest zwracany w zaokrągleniu do 8 miejsca po przecinku.
+
+---
+`GET /rates?currencies=GBP,USD`
+
+```json
+--> Status: 200
+
+[
+    { "from": "USD", "to": "GBP", "rate": 0.74365300 },
+    { "from": "GBP", "to": "USD", "rate": 1.34471319 },
+]
+```
+---
+
+`GET /rates?currencies=BTC,INR,LYD`
+
+```json
+--> Status: 200
+
+[
+    {"from":"BTC","to":"INR","rate":8616935.06861531},
+    {"from":"BTC","to":"LYD","rate":542699.05871178},
+    {"from":"INR","to":"BTC","rate":0.00000012},
+    {"from":"INR","to":"LYD","rate":0.06298052},
+    {"from":"LYD","to":"BTC","rate":0.00000184},
+    {"from":"LYD","to":"INR","rate":15.87792522}
+]
+```
+
+---
+failure when only one param given:
+
+`GET /rates?currencies=BTC`
+
+```json
+--> Status: 400
+```
+---
+failure when param ***currencies*** is empty:  
+
+`GET /rates?currencies=`
+
+```json
+--> Status: 400
+```
+---
+failure when currency is not found in openExchangeAPI:
+
+`GET /rates?currencies=ABRAKADABRA`
+
+```json
+--> Status: 400
+```
+---
+
+
+
+**GET /exchange**
+
+Wylicza wartosć wymiany jednej waluty na druga.  
 
 Endpoint wymaga trzech parametrów:
-
 - `from` - waluta krypto, którą chcemy wymienić
 - `to` - waluta krypto, która chcemy otrzymać
-- `amount` - kwotę krypto jaką chcemy wymienić
+- `amount` - kwotę krypto jaką chcemy wymienić.
 
-Na bazie powyższych parametrów oraz poniższej tabeli z kursami walut wylicz ile kryptowaluty otrzyma użytkownik, po zamianie jednej kryptowaluty na inną.
-W przypadku poprawnego zapytania, zwracamy `status 200` obiekt zawierający informację, które kryptowaluty wymieniany oraz ilość potencjalnie otrzymanej kryptowaluty *(precyzja ilości ma być równa precyzji zawartej tabeli w kolumnie `decimal places` dla danej kryptowaluty)*. Ponad to obsługujemy tylko tokeny zawarte w tabeli. W przypadku otrzymania kryptowaluty spoza listy, lub któryś parametr jest pusty zwracamy `status 400` oraz puste ciało odpowiedzi.
-
-#### Kursy walut
+dane są zwracane na podstawie poniższej tabeli.
+kolumna decimal placec okresla dokladnosc po przecinku z jaka bedzie zwrocona dana waluta.
 
 | CryptoCurrency | Decimal places | Rate (to USD) |
 | ----------- | ----------- | ----------- |
@@ -100,42 +98,84 @@ W przypadku poprawnego zapytania, zwracamy `status 200` obiekt zawierający info
 | USDT | 6 | 0.999$
 | WBTC | 8 | 57,037.22$
 
-#### Przykład #1
+---
+`GET /exchange?from=WBTC&to=USDT&amount=1.0`
 
-**Request:** `GET /exchange?from=WBTC&to=USDT&amount=1.0`
+```json
+--> Status: 200
 
-**Response (JSON):**
-
-> Status: `200`
-
+{"from":"WBTC","to":"USDT","amount":57094.314314}
 ```
-{ "from": "WBTC", "to": "USDT", "amount": 57613.353535 }
+---
+`GET /exchange?from=GATE&to=WBTC&amount=12.0`
+
+```json
+--> Status: 200
+
+{"from":"GATE","to":"WBTC","amount":0.00144537}
 ```
+---
+`GET /exchange?from=FLOKI&to=BEER&amount=123.23`
 
-#### Przykład #2
+```json
+--> Status: 200
 
-**Request:** `GET /exchange?from=USDT&to=BEER&amount=1.0`
-
-**Response (JSON):**
-
-> Status: `200`
-
+{"from":"FLOKI","to":"BEER","amount":715.044453474197481450}
 ```
-{ "from": "USDT", "to": "USDT", "amount": 7009.810931379558830532 }
+---
+`GET /exchange?from=USDT&to=GATE&amount=108`
+
+```json
+--> Status: 200
+
+{"from":"USDT","to":"GATE","amount":15.704803493449786800}
 ```
+---
+`GET /exchange?from=BEER&to=FLOKI&amount=1.59`
 
-#### Przykład #3
+```json
+--> Status: 200
 
-**Request:** `GET /exchange?from=MATIC&to=GATE&amount=0.999`
+{"from":"BEER","to":"FLOKI","amount":0.274018907563025223}
+```
+---
+failure when ***amount***, ***from*** or ***to*** is empty:
 
-**Response:**
+`GET /exchange?from=WBTC&to=USDT&amount=`
 
-> Status: `400`
+```json
+--> Status: 400
+```
+---
+failure when one of three params is missing: 
 
-#### Przykład #4
+`GET /exchange?from=WBTC&to=USDT`
 
-**Request:** `GET /exchange?from=USDT&to=GATE`
+```json
+--> Status: 400
+```
+---
+failure when one of currencies not exists in given table:
 
-**Response:**
+`GET /exchange?from=AAAAA&to=USDT&amount=1.23`
 
-> Status: `400`
+```json
+--> Status: 400
+```
+---
+failure when amount is negative number:
+
+`GET /exchange?from=USDT&to=FLOKI&amount=-100`
+
+```json
+--> Status: 400
+```
+---
+failure when amount is not a number:
+
+`GET /exchange?from=USDT&to=FLOKI&amount=abcd`
+
+```json
+--> Status: 400
+```
+---
