@@ -1,28 +1,28 @@
 # ABOUT
 
-Proste REST API slużace do sprawdzenia kursu wymiany jednej waluty na druga, a także przeliczenie wymiany niektórych walut.
-Aplikacja pobiera kursy walut z openexchangerates.org API.
+A simple REST API used to check the exchange rate between currencies and to calculate the exchange value for selected currencies.  
+The application fetches currency rates from the openexchangerates.org API.
 
 ---
 # DEVELOPMENT
 
-Aby uruchomić aplikację openExchange API wymaga app_id przypisanego do konta użytkownika.  
-Założ konto na https://openexchangerates.org/signup/free aby otrzymac app_id.
+To run the application, the OpenExchange API requires an `app_id` linked to your user account.  
+Create an account at https://openexchangerates.org/signup/free to receive your `app_id`.
 
-pobierz repozytorium:
+Clone the repository:
 
 ```
 git clone git@github.com:i-oles/currency-api.git
 cd currency-api
 ```
 
-nastepnie używając dockera:
+Then using Docker (don't forget to pass ENV - your app_id):
 ```
 docker build -t currency-api .
-docker run -e APP_ID=<twoje_app_id> -p 8080:8080 currency-api
+docker run -e APP_ID=<your_app_id> -p 8080:8080 currency-api
 ```
 
-aplikacja domyslnie korzysta z configu znajdującego się w `./config/dev.json`
+By default, the application uses the config located in `./config/dev.json`
 
 ```json
 {
@@ -35,25 +35,37 @@ aplikacja domyslnie korzysta z configu znajdującego się w `./config/dev.json`
 }
 ```
 
-`./example` znajduje się przyklad testowego uderzenia do openExchangeAPI.
+An example test request to the OpenExchange API is located in `./example`
+
+The application also uses ***makefile***  
+You can use following commands:
+
+```
+
+make build  --> for build aplication
+make run    --> for running aplication locally
+make test   --> for run tests
+make lint   --> for run linter
+
+```
 
 # RUNNING
 
 ### GET /rates
 
-Returns all possible exchange rate pairs between requested currencies.  
-Endpoint wymaga jednego parametru:
+Returns all possible exchange rate pairs between the requested currencies.  
+This endpoint requires one parameter:
 
-- `currencies` - waluty których kurs wymiany nas interesuje.
+`currencies` - the currencies for which we want to get the exchange rates.
 
-Wynik jest zwracany w zaokrągleniu do 8 miejsca po przecinku.
-W przypadku błędu aplikacja zwraca puste body i statusCode 400.
-W przypadku gdy API openExchangeRate zwróci błąd, aplikacja również zwróci status code 400 i puste body.
+The result is returned rounded to 8 decimal places.  
+In case of an error, the application returns an empty body and a status code 400.  
+If the OpenExchangeRates API returns an error, the application also returns status code 400 and an empty body.
 
 ---
 `GET /rates?currencies=GBP,USD`
 
-```json
+```
 --> Status: 200
 
 [
@@ -65,7 +77,7 @@ W przypadku gdy API openExchangeRate zwróci błąd, aplikacja również zwróci
 
 `GET /rates?currencies=BTC,INR,LYD`
 
-```json
+```
 --> Status: 200
 
 [
@@ -79,27 +91,27 @@ W przypadku gdy API openExchangeRate zwróci błąd, aplikacja również zwróci
 ```
 
 ---
-failure when only one param given:
+Failure when only one currency is provided:
 
 `GET /rates?currencies=BTC`
 
-```json
+```
 --> Status: 400
 ```
 ---
-failure when param ***currencies*** is empty:  
+Failure when ***currencies*** parameter is empty:  
 
 `GET /rates?currencies=`
 
-```json
+```
 --> Status: 400
 ```
 ---
-failure when currency is not found in openExchangeAPI:
+Failure when the currency is not found in the OpenExchangeRates API:
 
 `GET /rates?currencies=ABRAKADABRA`
 
-```json
+```
 --> Status: 400
 ```
 ---
@@ -108,16 +120,16 @@ failure when currency is not found in openExchangeAPI:
 
 ### GET /exchange
 
-Wylicza wartosć wymiany jednej waluty na druga.  
+Calculates the exchange value from one cryptocurrency to another.  
+This endpoint requires three parameters:
 
-Endpoint wymaga trzech parametrów:
-- `from` - waluta krypto, którą chcemy wymienić
-- `to` - waluta krypto, która chcemy otrzymać
-- `amount` - kwotę krypto jaką chcemy wymienić.
+- `from` - the cryptocurrency we want to exchange
+- `to` - the cryptocurrency we want to receive
+- `amount` - the amount of cryptocurrency to exchange
 
-Dane są zwracane na podstawie poniższej tabeli.  
-Kolumna decimal placec okresla dokladnosc po przecinku z jaka bedzie zwrocona dana waluta.  
-W przypadku błędu aplikacja zwraca puste body i statusCode 400.
+The data is returned based on the table below.  
+The "Decimal places" column defines the precision to which the result is returned.  
+In case of an error, the application returns an empty body and a status code 400.  
 
 | CryptoCurrency | Decimal places | Rate (to USD) |
 | ----------- | ----------- | ----------- |
@@ -130,7 +142,7 @@ W przypadku błędu aplikacja zwraca puste body i statusCode 400.
 ---
 `GET /exchange?from=WBTC&to=USDT&amount=1.0`
 
-```json
+```
 --> Status: 200
 
 {"from":"WBTC","to":"USDT","amount":57094.314314}
@@ -138,7 +150,7 @@ W przypadku błędu aplikacja zwraca puste body i statusCode 400.
 ---
 `GET /exchange?from=GATE&to=WBTC&amount=12.0`
 
-```json
+```
 --> Status: 200
 
 {"from":"GATE","to":"WBTC","amount":0.00144537}
@@ -146,7 +158,7 @@ W przypadku błędu aplikacja zwraca puste body i statusCode 400.
 ---
 `GET /exchange?from=FLOKI&to=BEER&amount=123.23`
 
-```json
+```
 --> Status: 200
 
 {"from":"FLOKI","to":"BEER","amount":715.044453474197481450}
@@ -154,7 +166,7 @@ W przypadku błędu aplikacja zwraca puste body i statusCode 400.
 ---
 `GET /exchange?from=USDT&to=GATE&amount=108`
 
-```json
+```
 --> Status: 200
 
 {"from":"USDT","to":"GATE","amount":15.704803493449786800}
@@ -162,49 +174,57 @@ W przypadku błędu aplikacja zwraca puste body i statusCode 400.
 ---
 `GET /exchange?from=BEER&to=FLOKI&amount=1.59`
 
-```json
+```
 --> Status: 200
 
 {"from":"BEER","to":"FLOKI","amount":0.274018907563025223}
 ```
 ---
-failure when ***amount***, ***from*** or ***to*** is empty:
+Failure when ***amount***, ***from*** or ***to*** is empty:
 
 `GET /exchange?from=WBTC&to=USDT&amount=`
 
-```json
+```
 --> Status: 400
 ```
 ---
-failure when one of three params is missing: 
+Failure when ***amount***, ***from*** or ***to*** is missing:
 
 `GET /exchange?from=WBTC&to=USDT`
 
-```json
+```
 --> Status: 400
 ```
 ---
-failure when one of currencies not exists in given table:
+Failure when one of the currencies does not exist in the provided table:
 
 `GET /exchange?from=AAAAA&to=USDT&amount=1.23`
 
-```json
+```
 --> Status: 400
 ```
 ---
-failure when amount is negative number:
+Failure when the ***amount*** is a negative number:
 
 `GET /exchange?from=USDT&to=FLOKI&amount=-100`
 
-```json
+```
 --> Status: 400
 ```
 ---
-failure when amount is not a number:
+Failure when the ***amount*** is not a number:
 
 `GET /exchange?from=USDT&to=FLOKI&amount=abcd`
 
-```json
+```
 --> Status: 400
 ```
 ---
+
+# TESTING
+
+run:
+
+```
+go test -v ./...
+```
