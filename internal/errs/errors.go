@@ -19,6 +19,7 @@ var (
 	ErrNegativeAmount       = errors.New("error amount must be positive number")
 	ErrEmptyParam           = errors.New("error one or more params is empty")
 	ErrAmountNotNumber      = errors.New("error amount must a number")
+	ErrZeroValue            = errors.New("error got zero value from API or Repository")
 )
 
 type ErrorHandler interface {

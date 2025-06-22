@@ -125,6 +125,10 @@ func calculateCurrencyRates(
 			return nil, errs.ErrCurrencyNotFound
 		}
 
+		if sourceRate == 0 {
+			return nil, errs.ErrZeroValue
+		}
+
 		targetRate, ok := rates[targetCurrency]
 		if !ok {
 			return nil, errs.ErrCurrencyNotFound

@@ -101,6 +101,8 @@ func (m *MockErrorHandler) Handle(c *gin.Context, err error) {
 		errors.Is(err, errs.ErrEmptyParam),
 		errors.Is(err, errs.ErrBadRequest):
 		m.sendErrorResponse(c, http.StatusBadRequest, "")
+	case errors.Is(err, errs.ErrZeroValue):
+		m.sendErrorResponse(c, http.StatusUnprocessableEntity, errs.ErrZeroValue.Error())
 	default:
 		m.sendErrorResponse(c, http.StatusInternalServerError, err.Error())
 	}
@@ -140,6 +142,12 @@ func NewMockAPIFailureResp() MockCurrencyAPI {
 	}
 }
 
+func NewMockZeroValueErr() MockCurrencyAPI {
+	return MockCurrencyAPI{
+		err: errs.ErrZeroValue,
+	}
+}
+
 func (m MockCurrencyAPI) GetCurrencyRates(
 	_ context.Context, currencies []string,
 ) (api.Response, error) {
@@ -155,6 +163,7 @@ func (m MockCurrencyAPI) GetCurrencyRates(
 		"INR": 86.466554,
 		"IRR": 42125,
 		"USD": 1,
+		"MRU": 0.0,
 	}
 
 	for _, currency := range currencies {
@@ -182,7 +191,7 @@ func TestHandler_Handle(t *testing.T) {
 		wantBody        []byte
 	}{
 		{
-			name:            "test param USD,GBP, status ok",
+			name:            "param USD,GBP, status ok",
 			currencyRateAPI: NewMockAPISuccess(),
 			errorHandler:    NewMockErrorHandler(),
 			url:             "/rates?currencies=USD,GBP",
@@ -260,6 +269,14 @@ func TestHandler_Handle(t *testing.T) {
 			url:             "/rates?currencies=GBP,AAA",
 			wantStatus:      http.StatusNotFound,
 			wantErr:         "error unknown currency",
+		},
+		{
+			name:            "error divide by zero",
+			currencyRateAPI: NewMockZeroValueErr(),
+			errorHandler:    NewMockErrorHandler(),
+			url:             "/rates?currencies=INR,MRU",
+			wantStatus:      http.StatusUnprocessableEntity,
+			wantErr:         "error got zero value from API or Repository",
 		},
 	}
 

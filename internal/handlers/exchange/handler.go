@@ -84,6 +84,11 @@ func (h *Handler) exchange(c *gin.Context) (Response, error) {
 	}
 
 	sourceRate := decimal.NewFromFloat(sourceCurrencyDetails[1])
+
+	if targetCurrencyDetails[1] == 0 {
+		return Response{}, errs.ErrZeroValue
+	}
+
 	targetRate := decimal.NewFromFloat(targetCurrencyDetails[1])
 
 	exchangeRate := sourceRate.Div(targetRate)

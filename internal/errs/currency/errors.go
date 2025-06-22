@@ -28,6 +28,8 @@ func (e ErrorHandler) Handle(c *gin.Context, err error) {
 		errors.Is(err, errs.ErrEmptyParam),
 		errors.Is(err, errs.ErrBadRequest):
 		e.sendErrorResponse(c, http.StatusBadRequest, "")
+	case errors.Is(err, errs.ErrZeroValue):
+		e.sendErrorResponse(c, http.StatusUnprocessableEntity, errs.ErrZeroValue.Error())
 	default:
 		e.sendErrorResponse(c, http.StatusInternalServerError, err.Error())
 	}

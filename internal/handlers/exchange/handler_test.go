@@ -33,8 +33,8 @@ func NewMockCurrencyRateRepo() *MockCurrencyRateRepo {
 func NewMockWrongStorageCurrencyRateRepo() *MockCurrencyRateRepo {
 	return &MockCurrencyRateRepo{
 		Storage: map[string][]float64{
-			"FLOKI": {18},
-			"GATE":  {6.87},
+			"FLOKI": {18, 0.0},
+			"GATE":  {6.87, 0.0},
 		},
 	}
 }
@@ -61,6 +61,8 @@ func (m *MockErrorHandler) Handle(c *gin.Context, err error) {
 		errors.Is(err, errs.ErrAmountNotNumber),
 		errors.Is(err, errs.ErrEmptyParam):
 		m.sendErrorResponse(c, http.StatusBadRequest, "")
+	case errors.Is(err, errs.ErrZeroValue):
+		m.sendErrorResponse(c, http.StatusUnprocessableEntity, errs.ErrZeroValue.Error())
 	default:
 		m.sendErrorResponse(c, http.StatusInternalServerError, err.Error())
 	}
@@ -187,6 +189,14 @@ func TestHandler_Handle(t *testing.T) {
 			url:              "/exchange?from=FLOKI&to=GATE&amount=102",
 			wantStatus:       http.StatusInternalServerError,
 			wantErr:          "len of currency details is invalid",
+		},
+		{
+			name:             "Test error divide by zero",
+			currencyRateRepo: NewMockWrongStorageCurrencyRateRepo(),
+			errorHandler:     NewMockErrorHandler(),
+			url:              "/exchange?from=FLOKI&to=GATE&amount=102",
+			wantStatus:       http.StatusUnprocessableEntity,
+			wantErr:          "error got zero value from API or Repository",
 		},
 	}
 	for _, tt := range tests {
