@@ -56,13 +56,10 @@ func NewMockErrorHandler() *MockErrorHandler {
 
 func (m *MockErrorHandler) Handle(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		m.sendErrorResponse(c, http.StatusGatewayTimeout, "currency rate API timeout")
 	case errors.Is(err, errs.ErrRepoCurrencyNotFound),
 		errors.Is(err, errs.ErrNegativeAmount),
 		errors.Is(err, errs.ErrAmountNotNumber),
-		errors.Is(err, errs.ErrEmptyParam),
-		errors.Is(err, errs.ErrBadRequest):
+		errors.Is(err, errs.ErrEmptyParam):
 		m.sendErrorResponse(c, http.StatusBadRequest, "")
 	default:
 		m.sendErrorResponse(c, http.StatusInternalServerError, err.Error())
