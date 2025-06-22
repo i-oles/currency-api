@@ -6,14 +6,40 @@ Aplikacja pobiera kursy walut z openexchangerates.org API.
 ---
 # DEVELOPMENT
 
----
+Aby uruchomić aplikację openExchange API wymaga app_id przypisanego do konta użytkownika.  
+Założ konto na https://openexchangerates.org/signup/free aby otrzymac app_id.
 
-Aby uruchomić aplikację potrzebujemy 
+pobierz repozytorium:
 
+```
+git clone git@github.com:i-oles/currency-api.git
+cd currency-api
+```
 
-### Endpoints
+nastepnie używając dockera:
+```
+docker build -t currency-api .
+docker run -e APP_ID=<twoje_app_id> -p 8080:8080 currency-api
+```
 
-**GET /rates**
+aplikacja domyslnie korzysta z configu znajdującego się w `./config/dev.json`
+
+```json
+{
+  "ListenAddress": ":8080",
+  "ReadTimeout": 5,
+  "WriteTimeout": 10,
+  "ContextTimeout": 5,
+  "APIURL": "https://openexchangerates.org/api/",
+  "LogErrors": true
+}
+```
+
+`./example` znajduje się przyklad testowego uderzenia do openExchangeAPI.
+
+# RUNNING
+
+### GET /rates
 
 Returns all possible exchange rate pairs between requested currencies.  
 Endpoint wymaga jednego parametru:
@@ -21,6 +47,8 @@ Endpoint wymaga jednego parametru:
 - `currencies` - waluty których kurs wymiany nas interesuje.
 
 Wynik jest zwracany w zaokrągleniu do 8 miejsca po przecinku.
+W przypadku błędu aplikacja zwraca puste body i statusCode 400.
+W przypadku gdy API openExchangeRate zwróci błąd, aplikacja również zwróci status code 400 i puste body.
 
 ---
 `GET /rates?currencies=GBP,USD`
@@ -78,7 +106,7 @@ failure when currency is not found in openExchangeAPI:
 
 
 
-**GET /exchange**
+### GET /exchange
 
 Wylicza wartosć wymiany jednej waluty na druga.  
 
@@ -87,8 +115,9 @@ Endpoint wymaga trzech parametrów:
 - `to` - waluta krypto, która chcemy otrzymać
 - `amount` - kwotę krypto jaką chcemy wymienić.
 
-dane są zwracane na podstawie poniższej tabeli.
-kolumna decimal placec okresla dokladnosc po przecinku z jaka bedzie zwrocona dana waluta.
+Dane są zwracane na podstawie poniższej tabeli.  
+Kolumna decimal placec okresla dokladnosc po przecinku z jaka bedzie zwrocona dana waluta.  
+W przypadku błędu aplikacja zwraca puste body i statusCode 400.
 
 | CryptoCurrency | Decimal places | Rate (to USD) |
 | ----------- | ----------- | ----------- |
