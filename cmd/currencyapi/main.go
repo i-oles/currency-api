@@ -48,6 +48,8 @@ func main() {
 
 	slog.Info(cfg.Pretty())
 
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	router := gin.Default()
 
 	api := router.Group("/")
