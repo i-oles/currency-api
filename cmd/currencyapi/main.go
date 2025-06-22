@@ -7,7 +7,9 @@ import (
 	"log/slog"
 	openExchange "main/internal/api/openexchange"
 	"main/internal/configuration"
+	"main/internal/errs"
 	"main/internal/errs/currency"
+	logging "main/internal/errs/log"
 	"main/internal/handlers/exchange"
 	"main/internal/handlers/rates"
 	"main/internal/repository/memory"
@@ -47,7 +49,12 @@ func main() {
 
 	api := router.Group("/")
 
-	errorHandler := currency.NewErrorHandler()
+	var errorHandler errs.ErrorHandler
+
+	errorHandler = currency.NewErrorHandler()
+	if cfg.LogErrors {
+		errorHandler = logging.NewErrorHandler(errorHandler)
+	}
 
 	openExchangeAPI := openExchange.New(cfg.APIURL, appID)
 

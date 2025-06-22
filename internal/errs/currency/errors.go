@@ -11,11 +11,11 @@ import (
 
 type ErrorHandler struct{}
 
-func NewErrorHandler() *ErrorHandler {
-	return &ErrorHandler{}
+func NewErrorHandler() ErrorHandler {
+	return ErrorHandler{}
 }
 
-func (e *ErrorHandler) Handle(c *gin.Context, err error) {
+func (e ErrorHandler) Handle(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
 		e.sendErrorResponse(c, http.StatusGatewayTimeout, "currency rate API timeout")
@@ -33,7 +33,7 @@ func (e *ErrorHandler) Handle(c *gin.Context, err error) {
 	}
 }
 
-func (e *ErrorHandler) sendErrorResponse(c *gin.Context, status int, message string) {
+func (e ErrorHandler) sendErrorResponse(c *gin.Context, status int, message string) {
 	if message == "" {
 		c.AbortWithStatus(status)
 	} else {

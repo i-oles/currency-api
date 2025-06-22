@@ -20,6 +20,7 @@ type Configuration struct {
 	WriteTimeout   time.Duration
 	ContextTimeout time.Duration
 	APIURL         string
+	LogErrors      bool
 }
 
 func (c *Configuration) Pretty() string {
