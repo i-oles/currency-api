@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"main/internal/api/openexchange"
 	"os"
 
@@ -15,10 +16,11 @@ func main() {
 
 	appID := os.Getenv("APP_ID")
 	if appID == "" {
-		log.Fatal(
+		slog.Error(
 			"personal APP_ID for openExchangeAPI is not set." +
 				"Please set APP_ID env. Details in the README.md",
 		)
+		os.Exit(1)
 	}
 
 	log.Println("using appID for openExchangeAPI:", appID)

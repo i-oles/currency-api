@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"log/slog"
 	openExchange "main/internal/api/openexchange"
 	"main/internal/configuration"
@@ -24,26 +23,30 @@ import (
 )
 
 func main() {
+	gin.SetMode(gin.ReleaseMode)
+
 	_ = godotenv.Load()
 
 	appID := os.Getenv("APP_ID")
 	if appID == "" {
-		log.Fatal(
+		slog.Error(
 			"personal APP_ID for openExchangeAPI is not set." +
 				"Please set APP_ID env. Details in the README.md",
 		)
+		os.Exit(1)
 	}
 
-	log.Println("using appID for openExchangeAPI:", appID)
+	slog.Info("appID for openExchangeAPI:", slog.String("appID", appID))
 
 	var cfg configuration.Configuration
 
 	err := configuration.GetConfig("./config", &cfg)
 	if err != nil {
-		slog.Error(err.Error())
+		slog.Error("Error loading configuration:", slog.String("err", err.Error()))
+		os.Exit(1)
 	}
 
-	log.Println(cfg.Pretty())
+	slog.Info(cfg.Pretty())
 
 	router := gin.Default()
 
@@ -78,7 +81,8 @@ func main() {
 		slog.Info("Starting server...", slog.String("listen address", cfg.ListenAddress))
 
 		if err = srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("ListenAndServe error: %s\n", err.Error())
+			slog.Error("ListenAndServe error: %s\n", slog.String("err", err.Error()))
+			os.Exit(1)
 		}
 	}()
 
