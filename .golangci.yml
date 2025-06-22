@@ -123,6 +123,7 @@ issues:
       linters:
         - dupl
         - funlen
+        - lll
 run:
   skip-dirs:
     - "example"

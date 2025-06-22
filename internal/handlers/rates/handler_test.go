@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -302,7 +303,7 @@ func TestHandler_Handle(t *testing.T) {
 					t.Fatalf("invalid error response: %v", err)
 				}
 
-				if response["error"] != tt.wantErr {
+				if !strings.Contains(response["error"], tt.wantErr) {
 					t.Errorf("handler returned unexpected error: got %q want %q", response["error"], tt.wantErr)
 				}
 			} else if tt.wantBody != nil {

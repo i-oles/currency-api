@@ -3,6 +3,7 @@ package exchange
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"main/internal/errs"
 	"main/internal/repository"
 	"net/http"
@@ -71,22 +72,39 @@ func (h *Handler) exchange(c *gin.Context) (Response, error) {
 
 	sourceCurrencyDetails, err := h.currencyRateRepo.Get(sourceCurrency)
 	if err != nil {
-		return Response{}, err
+		return Response{}, fmt.Errorf("failed to get source currency rate: %w", err)
 	}
 
 	targetCurrencyDetails, err := h.currencyRateRepo.Get(targetCurrency)
 	if err != nil {
-		return Response{}, err
+		return Response{}, fmt.Errorf("failed to get the target currency rate: %w", err)
 	}
 
 	if len(sourceCurrencyDetails) != 2 && len(targetCurrencyDetails) != 2 {
 		return Response{}, errors.New("len of currency details is invalid")
 	}
 
+	exchangeResult, err := calculateExchange(sourceCurrencyDetails, targetCurrencyDetails, amount)
+	if err != nil {
+		return Response{}, fmt.Errorf("failed to calculate exchange rate: %w", err)
+	}
+
+	return Response{
+		From:   sourceCurrency,
+		To:     targetCurrency,
+		Amount: json.Number(exchangeResult),
+	}, nil
+}
+
+func calculateExchange(
+	sourceCurrencyDetails,
+	targetCurrencyDetails []float64,
+	amount decimal.Decimal,
+) (string, error) {
 	sourceRate := decimal.NewFromFloat(sourceCurrencyDetails[1])
 
 	if targetCurrencyDetails[1] == 0 {
-		return Response{}, errs.ErrZeroValue
+		return "", errs.ErrZeroValue
 	}
 
 	targetRate := decimal.NewFromFloat(targetCurrencyDetails[1])
@@ -97,9 +115,5 @@ func (h *Handler) exchange(c *gin.Context) (Response, error) {
 
 	decimalPlaces := int32(targetCurrencyDetails[0])
 
-	return Response{
-		From:   sourceCurrency,
-		To:     targetCurrency,
-		Amount: json.Number(result.StringFixed(decimalPlaces)),
-	}, nil
+	return result.StringFixed(decimalPlaces), nil
 }

@@ -14,6 +14,10 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+const (
+	decimalPrecision = 8
+)
+
 type Response struct {
 	From string      `json:"from"`
 	To   string      `json:"to"`
@@ -44,7 +48,7 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	responses, err := h.countRates(c, ctx)
+	responses, err := h.countRates(ctx, c)
 	if err != nil {
 		h.errorHandler.Handle(c, err)
 
@@ -54,7 +58,7 @@ func (h *Handler) Handle(c *gin.Context) {
 	c.JSON(http.StatusOK, responses)
 }
 
-func (h *Handler) countRates(c *gin.Context, ctx context.Context) ([]Response, error) {
+func (h *Handler) countRates(ctx context.Context, c *gin.Context) ([]Response, error) {
 	param := c.Query("currencies")
 	if param == "" {
 		return nil, errs.ErrEmptyParam
@@ -67,7 +71,7 @@ func (h *Handler) countRates(c *gin.Context, ctx context.Context) ([]Response, e
 
 	resp, err := h.currencyRateAPI.GetCurrencyRates(ctx, currencies)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get currency rates: %w", err)
 	}
 
 	currencyCombinations, err := getAllCombinations(currencies)
@@ -139,7 +143,7 @@ func calculateCurrencyRates(
 
 		decimalRate := targetDecimalRate.Div(sourceDecimalRate)
 
-		strRate := decimalRate.StringFixed(8)
+		strRate := decimalRate.StringFixed(decimalPrecision)
 		response := Response{
 			From: sourceCurrency,
 			To:   targetCurrency,

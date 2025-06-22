@@ -33,8 +33,17 @@ func NewMockCurrencyRateRepo() *MockCurrencyRateRepo {
 func NewMockWrongStorageCurrencyRateRepo() *MockCurrencyRateRepo {
 	return &MockCurrencyRateRepo{
 		Storage: map[string][]float64{
-			"FLOKI": {18, 0.0},
-			"GATE":  {6.87, 0.0},
+			"FLOKI": {18},
+			"GATE":  {6.87},
+		},
+	}
+}
+
+func NewMockZeroValuesInCurrencyRateRepo() *MockCurrencyRateRepo {
+	return &MockCurrencyRateRepo{
+		Storage: map[string][]float64{
+			"FLOKI": {0, 0.0},
+			"GATE":  {0, 0.0},
 		},
 	}
 }
@@ -192,7 +201,7 @@ func TestHandler_Handle(t *testing.T) {
 		},
 		{
 			name:             "Test error divide by zero",
-			currencyRateRepo: NewMockWrongStorageCurrencyRateRepo(),
+			currencyRateRepo: NewMockZeroValuesInCurrencyRateRepo(),
 			errorHandler:     NewMockErrorHandler(),
 			url:              "/exchange?from=FLOKI&to=GATE&amount=102",
 			wantStatus:       http.StatusUnprocessableEntity,
