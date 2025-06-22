@@ -123,9 +123,14 @@ issues:
       linters:
         - dupl
         - funlen
+        - nestif
         - lll
+
+    - path: 'example.*\.go'
+      linters:
+        - forbidigo
+        - lll
+
 run:
-  skip-dirs:
-    - "example"
   timeout: 5m
 

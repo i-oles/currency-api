@@ -123,5 +123,5 @@ func loadConfig() (configuration.Configuration, error) {
 
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
-	return cfg, err
+	return cfg, fmt.Errorf("error loading configuration: %w", err)
 }

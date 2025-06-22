@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -94,6 +95,7 @@ func TestHandler_Handle(t *testing.T) {
 		wantStatus       int
 		wantErr          string
 		wantBody         []byte
+		decimalPrecision int
 	}{
 		{
 			name:             "Test Exchange GATE to FLOKI",
@@ -102,6 +104,7 @@ func TestHandler_Handle(t *testing.T) {
 			url:              "/exchange?from=GATE&to=FLOKI&amount=123.12345",
 			wantStatus:       http.StatusOK,
 			wantBody:         []byte(`{"from":"GATE","to":"FLOKI","amount":5923376.060924369747894400}`),
+			decimalPrecision: 18,
 		},
 		{
 			name:             "Test Exchange USDT to WBTC",
@@ -110,6 +113,7 @@ func TestHandler_Handle(t *testing.T) {
 			url:              "/exchange?from=USDT&to=WBTC&amount=1",
 			wantStatus:       http.StatusOK,
 			wantBody:         []byte(`{"from":"USDT","to":"WBTC","amount":0.00001751}`),
+			decimalPrecision: 8,
 		},
 		{
 			name:             "Test Exchange USDT to BEER",
@@ -118,6 +122,7 @@ func TestHandler_Handle(t *testing.T) {
 			url:              "/exchange?from=USDT&to=BEER&amount=1.0",
 			wantStatus:       http.StatusOK,
 			wantBody:         []byte(`{"from":"USDT","to":"BEER","amount":40593.254774481917919500}`),
+			decimalPrecision: 18,
 		},
 		{
 			name:             "Test Exchange BEER to USDT",
@@ -126,6 +131,16 @@ func TestHandler_Handle(t *testing.T) {
 			url:              "/exchange?from=BEER&to=USDT&amount=108.108",
 			wantStatus:       http.StatusOK,
 			wantBody:         []byte(`{"from":"BEER","to":"USDT","amount":0.002663}`),
+			decimalPrecision: 6,
+		},
+		{
+			name:             "Test Exchange FLOKI to GATE",
+			currencyRateRepo: NewMockCurrencyRateRepo(),
+			errorHandler:     NewMockErrorHandler(),
+			url:              "/exchange?from=FLOKI&to=GATE&amount=50",
+			wantStatus:       http.StatusOK,
+			wantBody:         []byte(`{"from":"FLOKI","to":"GATE","amount":0.001039301310045000}`),
+			decimalPrecision: 18,
 		},
 		{
 			name:             "Test Exchange Error negative 'amount'",
@@ -192,7 +207,7 @@ func TestHandler_Handle(t *testing.T) {
 			wantBody:         nil,
 		},
 		{
-			name:             "Test wrong data from currency repo",
+			name:             "Test error wrong data from currency repo",
 			currencyRateRepo: NewMockWrongStorageCurrencyRateRepo(),
 			errorHandler:     NewMockErrorHandler(),
 			url:              "/exchange?from=FLOKI&to=GATE&amount=102",
@@ -238,7 +253,32 @@ func TestHandler_Handle(t *testing.T) {
 				if !reflect.DeepEqual(recorder.Body.Bytes(), tt.wantBody) {
 					t.Errorf("error: gotBody = %s, wantBody %s", gotBody, tt.wantBody)
 				}
+
+				gotDecimalPrecision, err := getDecimalPrecision(gotBody)
+				if err != nil {
+					t.Errorf("error parsing decimalPrecision: %v", err)
+				}
+
+				if gotDecimalPrecision != tt.decimalPrecision {
+					t.Errorf("wrond decimal precision, got = %d, want %d", gotDecimalPrecision, tt.decimalPrecision)
+				}
 			}
 		})
 	}
+}
+
+func getDecimalPrecision(body []byte) (int, error) {
+	gotBodyStr := string(body)
+
+	split := strings.Split(gotBodyStr, ".")
+	if len(split) != 2 {
+		return 0, errors.New("could not find float in response")
+	}
+
+	decimalPlaces := strings.Split(split[1], "}")
+	if len(decimalPlaces) != 2 {
+		return 0, errors.New("invalid response format")
+	}
+
+	return len(decimalPlaces[0]), nil
 }
