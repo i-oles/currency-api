@@ -25,7 +25,11 @@ func main() {
 
 	log.Println("using appID for openExchangeAPI:", appID)
 
-	openExchange := openexchange.New("https://openexchangerates.org/api/", appID)
+	openExchange, err := openexchange.New("https://openexchangerates.org/api/", appID)
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
 
 	resp, err := openExchange.GetCurrencyRates(context.Background(), []string{"USD", "INR", "EUR", "BTC"})
 	if err != nil {
