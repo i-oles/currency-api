@@ -2,10 +2,10 @@ package exchange
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"main/internal/errs"
 	"main/internal/repository"
+	"main/internal/repository/memory"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -80,8 +80,8 @@ func (h *Handler) exchange(c *gin.Context) (Response, error) {
 		return Response{}, fmt.Errorf("failed to get the target currency rate: %w", err)
 	}
 
-	if len(sourceCurrencyDetails) != 2 && len(targetCurrencyDetails) != 2 {
-		return Response{}, errors.New("len of currency details is invalid")
+	if zeroValue(sourceCurrencyDetails, targetCurrencyDetails) {
+		return Response{}, errs.ErrZeroValue
 	}
 
 	exchangeResult, err := calculateExchange(sourceCurrencyDetails, targetCurrencyDetails, amount)
@@ -98,22 +98,22 @@ func (h *Handler) exchange(c *gin.Context) (Response, error) {
 
 func calculateExchange(
 	sourceCurrencyDetails,
-	targetCurrencyDetails []float64,
+	targetCurrencyDetails memory.CurrencyDetails,
 	amount decimal.Decimal,
 ) (string, error) {
-	sourceRate := decimal.NewFromFloat(sourceCurrencyDetails[1])
+	sourceRate := decimal.NewFromFloat(sourceCurrencyDetails.Rate)
 
-	if targetCurrencyDetails[1] == 0 {
-		return "", errs.ErrZeroValue
-	}
-
-	targetRate := decimal.NewFromFloat(targetCurrencyDetails[1])
+	targetRate := decimal.NewFromFloat(targetCurrencyDetails.Rate)
 
 	exchangeRate := sourceRate.Div(targetRate)
 
 	result := amount.Mul(exchangeRate)
 
-	decimalPlaces := int32(targetCurrencyDetails[0])
+	decimalPlaces := int32(targetCurrencyDetails.DecimalPrecision)
 
 	return result.StringFixed(decimalPlaces), nil
+}
+
+func zeroValue(source, target memory.CurrencyDetails) bool {
+	return source.Rate == 0 || target.Rate == 0 || source.DecimalPrecision == 0 || target.DecimalPrecision == 0
 }
