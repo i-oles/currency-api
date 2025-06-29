@@ -32,7 +32,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	router := setupRouter(cfg)
+	router, err := setupRouter(cfg)
+	if err != nil {
+		slog.Error("Failed to setup router", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
 
 	srv := &http.Server{
 		Addr:              cfg.ListenAddress,
@@ -72,7 +76,7 @@ func runServer(srv *http.Server, cfg configuration.Configuration) {
 	slog.Info("Server stopped")
 }
 
-func setupRouter(cfg configuration.Configuration) *gin.Engine {
+func setupRouter(cfg configuration.Configuration) (*gin.Engine, error) {
 	router := gin.Default()
 
 	api := router.Group("/")
@@ -84,7 +88,10 @@ func setupRouter(cfg configuration.Configuration) *gin.Engine {
 		errorHandler = logging.NewErrorHandler(errorHandler)
 	}
 
-	openExchangeAPI := openExchange.New(cfg.APIURL, os.Getenv("APP_ID"))
+	openExchangeAPI, err := openExchange.New(cfg.APIURL, os.Getenv("APP_ID"))
+	if err != nil {
+		return nil, fmt.Errorf("error while preparing exchange API: %w", err)
+	}
 
 	ratesHandler := rates.NewHandler(openExchangeAPI, errorHandler)
 	api.GET("/rates", ratesHandler.Handle)
@@ -94,7 +101,7 @@ func setupRouter(cfg configuration.Configuration) *gin.Engine {
 
 	api.GET("/exchange", exchangeHandler.Handle)
 
-	return router
+	return router, nil
 }
 
 func loadConfig() (configuration.Configuration, error) {
