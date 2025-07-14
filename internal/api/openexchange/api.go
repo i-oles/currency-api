@@ -12,42 +12,41 @@ import (
 	"path"
 )
 
+const (
+	apiSourceFile = "latest.json"
+	baseCurrency  = "USD"
+)
+
 type OpenExchange struct {
-	apiURL        string
-	apiAppID      string
-	apiSourceFile string
-	baseCurrency  string
+	URL *url.URL
 }
 
-func New(apiURL, apiAppID string) OpenExchange {
-	return OpenExchange{
-		apiURL:        apiURL,
-		apiAppID:      apiAppID,
-		apiSourceFile: "latest.json",
-		baseCurrency:  "USD",
+func New(apiURL, apiAppID string) (OpenExchange, error) {
+	reqURL, err := url.Parse(apiURL)
+	if err != nil {
+		return OpenExchange{}, fmt.Errorf("error parsing api url %s: %w", apiURL, err)
 	}
+
+	reqURL.Path = path.Join(reqURL.Path, apiSourceFile)
+
+	query := url.Values{}
+	query.Set("app_id", apiAppID)
+	query.Set("base", baseCurrency)
+
+	reqURL.RawQuery = query.Encode()
+
+	return OpenExchange{
+		URL: reqURL,
+	}, nil
 }
 
 func (o OpenExchange) GetCurrencyRates(
 	ctx context.Context,
 	currencies []string,
 ) (api.Response, error) {
-	reqURL, err := url.Parse(o.apiURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, o.URL.String(), nil)
 	if err != nil {
-		return api.Response{}, fmt.Errorf("error parsing api url %s: %w", o.apiURL, err)
-	}
-
-	reqURL.Path = path.Join(reqURL.Path, o.apiSourceFile)
-
-	query := url.Values{}
-	query.Set("app_id", o.apiAppID)
-	query.Set("base", o.baseCurrency)
-
-	reqURL.RawQuery = query.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
-	if err != nil {
-		return api.Response{}, fmt.Errorf("error creating request %s: %w", reqURL.String(), err)
+		return api.Response{}, fmt.Errorf("error creating request %s: %w", o.URL.String(), err)
 	}
 
 	resp, err := http.DefaultClient.Do(req)

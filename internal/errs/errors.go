@@ -2,13 +2,8 @@ package errs
 
 import (
 	"errors"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
-)
-
-const (
-	StatusCode400 = http.StatusBadRequest
 )
 
 var (

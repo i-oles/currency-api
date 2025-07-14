@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"main/internal/errs"
+	"main/internal/errs/currency"
 	"main/internal/repository"
+	"main/internal/repository/memory"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -15,74 +17,33 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type MockCurrencyRateRepo struct {
-	Storage map[string][]float64
+const (
+	_ = iota
+	beer
+	gate
+)
+
+type MockWrongCurrencyRateRepo struct {
+	Storage []memory.CurrencyDetails
 }
 
-func NewMockCurrencyRateRepo() *MockCurrencyRateRepo {
-	return &MockCurrencyRateRepo{
-		Storage: map[string][]float64{
-			"BEER":  {18, 0.00002461},
-			"FLOKI": {18, 0.0001428},
-			"GATE":  {18, 6.87},
-			"USDT":  {6, 0.999},
-			"WBTC":  {8, 57037.22},
+func NewMockWrongStorageCurrencyRateRepo() *MockWrongCurrencyRateRepo {
+	return &MockWrongCurrencyRateRepo{
+		Storage: []memory.CurrencyDetails{
+			beer: {0, 0},
+			gate: {0, 0},
 		},
 	}
 }
 
-func NewMockWrongStorageCurrencyRateRepo() *MockCurrencyRateRepo {
-	return &MockCurrencyRateRepo{
-		Storage: map[string][]float64{
-			"FLOKI": {18},
-			"GATE":  {6.87},
-		},
-	}
-}
-
-func NewMockZeroValuesInCurrencyRateRepo() *MockCurrencyRateRepo {
-	return &MockCurrencyRateRepo{
-		Storage: map[string][]float64{
-			"FLOKI": {0, 0.0},
-			"GATE":  {0, 0.0},
-		},
-	}
-}
-
-func (m *MockCurrencyRateRepo) Get(currency string) ([]float64, error) {
-	value, ok := m.Storage[currency]
-	if !ok {
-		return []float64{}, errs.ErrRepoCurrencyNotFound
-	}
-
-	return value, nil
-}
-
-type MockErrorHandler struct{}
-
-func NewMockErrorHandler() *MockErrorHandler {
-	return &MockErrorHandler{}
-}
-
-func (m *MockErrorHandler) Handle(c *gin.Context, err error) {
-	switch {
-	case errors.Is(err, errs.ErrRepoCurrencyNotFound),
-		errors.Is(err, errs.ErrNegativeAmount),
-		errors.Is(err, errs.ErrAmountNotNumber),
-		errors.Is(err, errs.ErrEmptyParam):
-		m.sendErrorResponse(c, http.StatusBadRequest, "")
-	case errors.Is(err, errs.ErrZeroValue):
-		m.sendErrorResponse(c, http.StatusUnprocessableEntity, errs.ErrZeroValue.Error())
+func (m *MockWrongCurrencyRateRepo) Get(currency string) (memory.CurrencyDetails, error) {
+	switch currency {
+	case "BEER":
+		return m.Storage[beer], nil
+	case "GATE":
+		return m.Storage[gate], nil
 	default:
-		m.sendErrorResponse(c, http.StatusInternalServerError, err.Error())
-	}
-}
-
-func (m *MockErrorHandler) sendErrorResponse(c *gin.Context, status int, message string) {
-	if message == "" {
-		c.AbortWithStatus(status)
-	} else {
-		c.JSON(status, gin.H{"error": message})
+		return memory.CurrencyDetails{}, errs.ErrRepoCurrencyNotFound
 	}
 }
 
@@ -99,8 +60,8 @@ func TestHandler_Handle(t *testing.T) {
 	}{
 		{
 			name:             "Test Exchange GATE to FLOKI",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=GATE&to=FLOKI&amount=123.12345",
 			wantStatus:       http.StatusOK,
 			wantBody:         []byte(`{"from":"GATE","to":"FLOKI","amount":5923376.060924369747894400}`),
@@ -108,8 +69,8 @@ func TestHandler_Handle(t *testing.T) {
 		},
 		{
 			name:             "Test Exchange USDT to WBTC",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=USDT&to=WBTC&amount=1",
 			wantStatus:       http.StatusOK,
 			wantBody:         []byte(`{"from":"USDT","to":"WBTC","amount":0.00001751}`),
@@ -117,8 +78,8 @@ func TestHandler_Handle(t *testing.T) {
 		},
 		{
 			name:             "Test Exchange USDT to BEER",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=USDT&to=BEER&amount=1.0",
 			wantStatus:       http.StatusOK,
 			wantBody:         []byte(`{"from":"USDT","to":"BEER","amount":40593.254774481917919500}`),
@@ -126,8 +87,8 @@ func TestHandler_Handle(t *testing.T) {
 		},
 		{
 			name:             "Test Exchange BEER to USDT",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=BEER&to=USDT&amount=108.108",
 			wantStatus:       http.StatusOK,
 			wantBody:         []byte(`{"from":"BEER","to":"USDT","amount":0.002663}`),
@@ -135,8 +96,8 @@ func TestHandler_Handle(t *testing.T) {
 		},
 		{
 			name:             "Test Exchange FLOKI to GATE",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=FLOKI&to=GATE&amount=50",
 			wantStatus:       http.StatusOK,
 			wantBody:         []byte(`{"from":"FLOKI","to":"GATE","amount":0.001039301310045000}`),
@@ -144,64 +105,64 @@ func TestHandler_Handle(t *testing.T) {
 		},
 		{
 			name:             "Test Exchange Error negative 'amount'",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=BEER&to=USDT&amount=-100",
 			wantStatus:       http.StatusBadRequest,
 			wantBody:         nil,
 		},
 		{
 			name:             "Test Exchange Error 'amount' is not a number",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=BEER&to=USDT&amount=abrakadabra",
 			wantStatus:       http.StatusBadRequest,
 			wantBody:         nil,
 		},
 		{
 			name:             "Test Exchange Error unknown 'from' currency MATIC",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=MATIC&to=USDT&amount=12",
 			wantStatus:       http.StatusBadRequest,
 			wantBody:         nil,
 		},
 		{
 			name:             "Test Exchange Error unknown 'to' currency BBB",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=BEER&to=BBB&amount=12",
 			wantStatus:       http.StatusBadRequest,
 			wantBody:         nil,
 		},
 		{
 			name:             "Test Exchange Error empty 'amount' param",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=BEER&to=USDT&amount=",
 			wantStatus:       http.StatusBadRequest,
 			wantBody:         nil,
 		},
 		{
 			name:             "Test Exchange Error empty 'from' param",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=&to=USDT&amount=1029",
 			wantStatus:       http.StatusBadRequest,
 			wantBody:         nil,
 		},
 		{
 			name:             "Test Exchange Error empty 'to' param",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=FLOKI&to=&amount=1029",
 			wantStatus:       http.StatusBadRequest,
 			wantBody:         nil,
 		},
 		{
 			name:             "Test Exchange Error only two params given",
-			currencyRateRepo: NewMockCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
+			currencyRateRepo: memory.NewCurrencyRateRepo(),
+			errorHandler:     currency.NewErrorHandler(),
 			url:              "/exchange?from=BEER&to=USDT",
 			wantStatus:       http.StatusBadRequest,
 			wantBody:         nil,
@@ -209,16 +170,8 @@ func TestHandler_Handle(t *testing.T) {
 		{
 			name:             "Test error wrong data from currency repo",
 			currencyRateRepo: NewMockWrongStorageCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
-			url:              "/exchange?from=FLOKI&to=GATE&amount=102",
-			wantStatus:       http.StatusInternalServerError,
-			wantErr:          "len of currency details is invalid",
-		},
-		{
-			name:             "Test error divide by zero",
-			currencyRateRepo: NewMockZeroValuesInCurrencyRateRepo(),
-			errorHandler:     NewMockErrorHandler(),
-			url:              "/exchange?from=FLOKI&to=GATE&amount=102",
+			errorHandler:     currency.NewErrorHandler(),
+			url:              "/exchange?from=BEER&to=GATE&amount=102",
 			wantStatus:       http.StatusUnprocessableEntity,
 			wantErr:          "error got zero value from API or Repository",
 		},

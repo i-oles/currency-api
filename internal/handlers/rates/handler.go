@@ -65,18 +65,18 @@ func (h *Handler) countRates(ctx context.Context, c *gin.Context) ([]Response, e
 	}
 
 	currencies := strings.Split(param, ",")
-	if len(currencies) < 2 {
+	if len(currencies) < 2 || containsDuplicates(currencies) {
 		return nil, errs.ErrBadRequest
-	}
-
-	resp, err := h.currencyRateAPI.GetCurrencyRates(ctx, currencies)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get currency rates: %w", err)
 	}
 
 	currencyCombinations, err := getAllCombinations(currencies)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get combinations: %w", err)
+	}
+
+	resp, err := h.currencyRateAPI.GetCurrencyRates(ctx, currencies)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get currency rates: %w", err)
 	}
 
 	responses, err := calculateCurrencyRates(resp.Rates, currencyCombinations)
@@ -89,9 +89,6 @@ func (h *Handler) countRates(ctx context.Context, c *gin.Context) ([]Response, e
 
 func getAllCombinations(input []string) ([][]string, error) {
 	n := len(input)
-	if n < 2 {
-		return nil, errors.New("not enough elements to generate combinations")
-	}
 
 	result := make([][]string, 0, n*(n-1))
 
@@ -104,6 +101,18 @@ func getAllCombinations(input []string) ([][]string, error) {
 	}
 
 	return result, nil
+}
+
+func containsDuplicates(list []string) bool {
+	seen := make(map[string]bool)
+	for _, item := range list {
+		if ok := seen[item]; ok {
+			return true
+		}
+		seen[item] = true
+	}
+
+	return false
 }
 
 func calculateCurrencyRates(
